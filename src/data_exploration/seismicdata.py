@@ -43,7 +43,7 @@ def data():
 
     train['class'] = train['class'].astype(int)
 
-    train = train.loc[:,['gdenergy', 'gdpuls', 'shift', 'seismic', 'seismoacoustic', 'ghazard', 'genergy', 'gpuls', 'energy', 'maxenergy', 'nbumpsv', 'class']]
+    train = train.loc[:,['gdenergy', 'gdpuls', 'genergy', 'energy', 'maxenergy', 'gpuls', 'shift', 'seismic', 'seismoacoustic', 'ghazard', 'nbumpsv', 'class']]
 
 
     return train.drop(columns = 'class'), train
