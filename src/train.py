@@ -70,26 +70,32 @@ def crossvalidation(inp, labels, model, epochs=500, k = 5, seed = 0, verbose = 0
 
 def modeltests(inp, labels, testdata, model, name, description = None, epochs=500, k = 5, seed = 0, verbose = 0):
     import matplotlib.pyplot as plt
+    import time
     np.random.seed(seed)
 
+    start = time.perf_counter()
     cv = crossvalidation(inp, labels, model, epochs, k, seed, verbose = verbose)
+    elapsed = time.perf_counter() - start
     a = np.mean(cv['cm'],axis = 0)
     ave = (a[0][0] + a[1][1])/a.sum()
     spec = a[1][1]/(a[:,1].sum())
-    loss = np.mean(cv['loss'],1)
-    astr = f'||True 0| True 1|\n|Predicted 0|{a[0][0]}|{a[0][1]}\n|Predicted 1|{a[1][0]}|{a[1][1]}\n'
+    loss = np.mean(cv['loss'],0)
+    astr = f'||True 0| True 1|\n|-|-|-|\n|Predicted 0|{a[0][0]}|{a[0][1]}\n|Predicted 1|{a[1][0]}|{a[1][1]}\n'
     print(name)
     print(astr)
     print(f'Average accuracy: {ave}')
     print(f'Average specificity: {spec}')
     print(f'Average loss: {loss}')
-    print(f'Average cm: {a}')
     print(f'|Acc|Spec|Loss|\n{ave}|{spec}|{loss}')
+    print(f'Took {elapsed} seconds')
 
+    name = f'src/reports/test1/{name}'
 
     model.reset_metrics()
 
+    start = time.perf_counter()
     model.fit(inp, labels, epochs=epochs, batch_size=64, verbose = verbose)
+    elapsedtest = time.perf_counter() - start
 
     X,Y = labels
 
@@ -108,11 +114,13 @@ def modeltests(inp, labels, testdata, model, name, description = None, epochs=50
     np.add.at(tcm, (pred, Y.astype(int)), 1)
 
     with open(f'{name}', 'w') as file:
-        file.write(name)
+        #file.write(name)
         if description is not None:
             file.write(description)
         file.writelines('\n'.join([astr, f'Average accuracy: {ave}', f'Average specificity: {spec}', 
-        f'Average loss: {loss}', f'Average cm: {a}', f'|Acc|Spec|Loss|\n{ave}|{spec}|{loss}',f'Test cm: {tcm}']))
+        f'Average loss: {loss}', f'Average cm: {a}', f'|Acc|Spec|Loss|\n{ave}|{spec}|{loss}',f'Test cm: {tcm}', 
+        f'CV took {elapsed} seconds', f'Fitting all data took {elapsedtest} seconds', 
+        f'||True 0| True 1|\n|-|-|-|\n|Predicted 0|{tcm[0][0]}|{tcm[0][1]}\n|Predicted 1|{tcm[1][0]}|{tcm[1][1]}\n']))
 
     plt.plot(X[np.logical_and(Y==0, Y != pred),0], X[np.logical_and(Y==0, Y != pred),1], '.r')
     plt.plot(X[np.logical_and(Y==1, Y != pred),0], X[np.logical_and(Y==1, Y != pred),1], 'xr')
