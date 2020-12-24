@@ -72,7 +72,7 @@ class VAE(tf.keras.Model):
     def call(self, inp):
         for level in self.inlayers:
             inp = [layer(i) for layer, i in zip(level, inp)]
-        print(inp)
+            
         inp = tf.concat(inp, 0)
         means, logvar = self.encoder(inp)
         
