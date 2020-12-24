@@ -146,27 +146,20 @@ def testdata(n1=100,n2=100,n3=100,n4=10):
     x1 = np.random.multivariate_normal([10,24], [[3,2],[2,3]], n1).astype('float32')
     x2 = np.random.multivariate_normal([-3,30], [[5,3],[3,6]], n2).astype('float32')
     x3 = np.random.multivariate_normal([-30,3], [[4,3],[3,4]], n3).astype('float32')
-    x4 = np.array(list(zip(np.random.uniform(-50,50,10), np.random.uniform(-50,50,n4)))).astype('float32')
+    x4 = np.array(list(zip(np.random.uniform(-50,50,n4), np.random.uniform(-50,50,n4)))).astype('float32')
     X = np.concatenate([x1, x2, x3, x4])
     Y = np.concatenate([np.zeros(len(x1)), np.zeros(len(x2)), np.zeros(len(x3)), np.ones(len(x4))])
     Y = np.expand_dims(Y,-1).astype('float32')
     return X,Y
 
-if __name__ == "__main__":
-    import numpy as np
-    import matplotlib.pyplot as plt
-    from train import train, splitdata, crossvalidation, modeltests
-    import matplotlib
-    import random
-    random.seed(0)
-    np.random.seed(0)
+def mptraining(a1, a2):
+    vae = VAE(**a1)
+    vae.compile(tf.keras.optimizers.Adam(learning_rate=1e-3), loss=[tf.keras.losses.mean_squared_error, tf.keras.losses.binary_crossentropy])
+    a2['model'] = vae
+    modeltests(**a2)
 
-    X,Y = testdata()
-
+def testp1(X,Y,Xtest, Ytest):
     optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
-    
-    Xtest, Ytest = testdata(n4=100)
-
 
     vae = VAE([],[128,64,16], 8, outputsize = [[2,1]], finalactivation=[None, 'sigmoid'])
     vae.compile(optimizer, loss=[tf.keras.losses.mean_squared_error, tf.keras.losses.binary_crossentropy])
@@ -188,9 +181,8 @@ if __name__ == "__main__":
     vae.compile(optimizer, loss=[tf.keras.losses.mean_squared_error, tf.keras.losses.binary_crossentropy])
     modeltests(X,[X,Y], [Xtest, Ytest], model = vae, epochs = 500, name = '05', description='256|128|64, Latent of 16, 500 epochs against 100 from each distribution and 10 outliers')
 
-
-    X,Y = testdata(200,200,200,20)
-
+def testp2(X,Y,Xtest,Ytest):
+    optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
 
     vae = VAE([],[128,64,16], 8, outputsize = [[2,1]], finalactivation=[None, 'sigmoid'])
     vae.compile(optimizer, loss=[tf.keras.losses.mean_squared_error, tf.keras.losses.binary_crossentropy])
@@ -206,8 +198,39 @@ if __name__ == "__main__":
 
     vae = VAE([],[64,32], 16, outputsize = [[2,1]], finalactivation=[None, 'sigmoid'])
     vae.compile(optimizer, loss=[tf.keras.losses.mean_squared_error, tf.keras.losses.binary_crossentropy])
-    modeltests(X,[X,Y], [Xtest, Ytest], model = vae, epochs = 500, name = '14', description='64|16, Latent of 16 500 epochs against 200 from each distribution and 20 outliers')
+    modeltests(X,[X,Y], [Xtest, Ytest], model = vae, epochs = 500, name = '14', description='64|32, Latent of 16 500 epochs against 200 from each distribution and 20 outliers')
 
     vae = VAE([],[256,128,64], 16, outputsize = [[2,1]], finalactivation=[None, 'sigmoid'])
     vae.compile(optimizer, loss=[tf.keras.losses.mean_squared_error, tf.keras.losses.binary_crossentropy])
     modeltests(X,[X,Y], [Xtest, Ytest], model = vae, epochs = 500, name = '15', description='256|128|64, Latent of 16, 500 epochs against 200 from each distribution and 20 outliers')
+
+if __name__ == "__main__":
+    import numpy as np
+    import matplotlib.pyplot as plt
+    from train import train, splitdata, crossvalidation, modeltests
+    import matplotlib
+    import random
+    import multiprocessing
+
+    random.seed(0)
+    np.random.seed(0)
+
+    X,Y = testdata()
+
+    
+    Xtest, Ytest = testdata(n4=100)
+    
+    """ a1 = {'inputsize':[], 'inlayersize':[128,64,16], 'latentsize':8, 'outlayersize' : None, 'outputsize' : [[2,1]], 'finalactivation' : [None, 'sigmoid']}
+    a2 = {'inp':X, 'labels':[X,Y], 'testdata':[Xtest,Ytest], 'name':'01', 'description' : '128|64|16, Latent of 8, 500 epochs against 100 from each distribution and 10 outliers'}
+    mp = multiprocessing.Process(target = mptraining, args = [a1,a2])
+    mp.start()
+    mp.join() """
+    mp = multiprocessing.Process(target = testp1, args = [X,Y,Xtest,Ytest])
+    mp.start()
+    mp.join()
+
+    X,Y = testdata(200,200,200,20)
+
+    mp = multiprocessing.Process(target = testp2, args = [X,Y,Xtest,Ytest])
+    mp.start()
+    mp.join()
