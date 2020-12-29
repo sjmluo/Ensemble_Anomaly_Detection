@@ -1,4 +1,7 @@
 import tensorflow as tf
+from keras import backend as K
+from itertools import product
+from functools import partial
 
 class Encoder(tf.keras.layers.Layer):
     def __init__(self, layersizes, latentsize):
@@ -73,7 +76,7 @@ class VAE(tf.keras.Model):
         for level in self.inlayers:
             inp = [layer(i) for layer, i in zip(level, inp)]
             
-        inp = tf.concat(inp, 0)
+        inp = tf.concat(inp, -1)
         means, logvar = self.encoder(inp)
         
         var = tf.exp(0.5*logvar)
@@ -204,6 +207,77 @@ def testp2(X,Y,Xtest,Ytest):
     vae.compile(optimizer, loss=[tf.keras.losses.mean_squared_error, tf.keras.losses.binary_crossentropy])
     modeltests(X,[X,Y], [Xtest, Ytest], model = vae, epochs = 500, name = '15', description='256|128|64, Latent of 16, 500 epochs against 200 from each distribution and 20 outliers')
 
+def loss3(true, predict, ce = None):
+    print('true')
+    print(predict)
+    loss1 = tf.keras.losses.mean_squared_error(true[:,0], predict[:,0])
+    loss2 = ce(true[:,1], predict[:,1])
+    return loss1, loss2
+
+def testp3(X,Y,Xtest,Ytest):
+    from train import weightedce
+    ce = partial(weightedce, weights = tf.constant([[1,10],[1,1]], dtype = tf.float32))
+    loss = [tf.keras.losses.mean_squared_error, ce]
+    ce.__name__ = 'weightedce'
+    optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
+
+    vae = VAE([],[128,64,16], 8, outputsize = [[2,1]], finalactivation=[None, 'sigmoid'])
+    vae.compile(optimizer, loss=loss)
+    modeltests(X,[X,Y], [Xtest, Ytest], model = vae, epochs = 500, name = '31', verbose= 2, 
+        description='128|64|16, Latent of 8, 500 epochs against 200 from each distribution and 20 outliers with weighted loss with tf.function tag')
+
+    vae = VAE([],[64,16], 8, outputsize = [[2,1]], finalactivation=[None, 'sigmoid'])
+    vae.compile(optimizer, loss=loss)
+    modeltests(X,[X,Y], [Xtest, Ytest], model = vae, epochs = 500, name = '32', 
+        description='64|16, Latent of 8, 500 epochs against 200 from each distribution and 20 outliers with weighted loss with tf.function tag')
+
+    vae = VAE([],[64,16], 4, outputsize = [[2,1]], finalactivation=[None, 'sigmoid'])
+    vae.compile(optimizer, loss=loss)
+    modeltests(X,[X,Y], [Xtest, Ytest], model = vae, epochs = 500, name = '33', 
+        description='64|16, Latent of 4, 500 epochs against 200 from each distribution and 20 outliers with weighted loss with tf.function tag')
+
+    vae = VAE([],[64,32], 16, outputsize = [[2,1]], finalactivation=[None, 'sigmoid'])
+    vae.compile(optimizer, loss=loss)
+    modeltests(X,[X,Y], [Xtest, Ytest], model = vae, epochs = 500, name = '34', 
+        description='64|32, Latent of 16 500 epochs against 200 from each distribution and 20 outliers with weighted loss with tf.function tag')
+
+    vae = VAE([],[256,128,64], 16, outputsize = [[2,1]], finalactivation=[None, 'sigmoid'])
+    vae.compile(optimizer, loss=loss)
+    modeltests(X,[X,Y], [Xtest, Ytest], model = vae, epochs = 500, name = '35', 
+        description='256|128|64, Latent of 16, 500 epochs against 200 from each distribution and 20 outliers with weighted loss with tf.function tag')
+
+def testp4(X,Y,Xtest,Ytest):
+    from train import weightedce
+    ce = partial(weightedce, weights = tf.constant([[1,10],[1,1]], dtype = tf.float32))
+    loss = [tf.keras.losses.mean_squared_error, ce]
+    ce.__name__ = 'weightedce'
+    optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
+
+    vae = VAE([],[128,64,16], 8, outputsize = [[2,1]], finalactivation=[None, 'sigmoid'])
+    vae.compile(optimizer, loss=loss)
+    modeltests(X,[X,Y], [Xtest, Ytest], model = vae, epochs = 500, name = '41', verbose= 2, 
+        description='128|64|16, Latent of 8, 500 epochs against 200 from each distribution and 20 outliers with weighted loss with tf.function tag')
+
+    vae = VAE([],[64,16], 8, outputsize = [[2,1]], finalactivation=[None, 'sigmoid'])
+    vae.compile(optimizer, loss=loss)
+    modeltests(X,[X,Y], [Xtest, Ytest], model = vae, epochs = 500, name = '42', 
+        description='64|16, Latent of 8, 500 epochs against 200 from each distribution and 20 outliers with weighted loss with tf.function tag')
+
+    vae = VAE([],[64,16], 4, outputsize = [[2,1]], finalactivation=[None, 'sigmoid'])
+    vae.compile(optimizer, loss=loss)
+    modeltests(X,[X,Y], [Xtest, Ytest], model = vae, epochs = 500, name = '43', 
+        description='64|16, Latent of 4, 500 epochs against 200 from each distribution and 20 outliers with weighted loss with tf.function tag')
+
+    vae = VAE([],[64,32], 16, outputsize = [[2,1]], finalactivation=[None, 'sigmoid'])
+    vae.compile(optimizer, loss=loss)
+    modeltests(X,[X,Y], [Xtest, Ytest], model = vae, epochs = 500, name = '44', 
+        description='64|32, Latent of 16 500 epochs against 200 from each distribution and 20 outliers with weighted loss with tf.function tag')
+
+    vae = VAE([],[256,128,64], 16, outputsize = [[2,1]], finalactivation=[None, 'sigmoid'])
+    vae.compile(optimizer, loss=loss)
+    modeltests(X,[X,Y], [Xtest, Ytest], model = vae, epochs = 500, name = '45', 
+        description='256|128|64, Latent of 16, 500 epochs against 200 from each distribution and 20 outliers with weighted loss with tf.function tag')
+
 if __name__ == "__main__":
     import numpy as np
     import matplotlib.pyplot as plt
@@ -225,12 +299,17 @@ if __name__ == "__main__":
     mp = multiprocessing.Process(target = mptraining, args = [a1,a2])
     mp.start()
     mp.join() """
-    mp = multiprocessing.Process(target = testp1, args = [X,Y,Xtest,Ytest])
+    """ mp = multiprocessing.Process(target = testp1, args = [X,Y,Xtest,Ytest])
     mp.start()
-    mp.join()
+    mp.join() """
 
     X,Y = testdata(200,200,200,20)
 
-    mp = multiprocessing.Process(target = testp2, args = [X,Y,Xtest,Ytest])
+    """ mp = multiprocessing.Process(target = testp2, args = [X,Y,Xtest,Ytest])
     mp.start()
-    mp.join()
+    mp.join() """
+
+    testp4(X,Y,Xtest,Ytest)
+    """ mp = multiprocessing.Process(target = testp3, args = [X,Y,Xtest,Ytest])
+    mp.start()
+    mp.join() """

@@ -45,8 +45,15 @@ def data():
 
     train = train.loc[:,['gdenergy', 'gdpuls', 'genergy', 'energy', 'maxenergy', 'gpuls', 'shift', 'seismic', 'seismoacoustic', 'ghazard', 'nbumpsv', 'class']]
 
+    trainlist = [None for x in range(len(train.columns))]
 
-    return train.drop(columns = 'class'), train
+    for x in [0,1,2,3,4,5,11]:
+        trainlist[x] = np.expand_dims(np.asarray(train.iloc[:,x]).astype('float32'), -1)
+    
+    for x in range(6,11):
+        trainlist[x] = np.asarray(np.stack(train.iloc[:,x])).astype('float32')
+
+    return trainlist[:-1], trainlist
 
 if __name__ == "__main__":
-    print(data())
+    print(data()[1])

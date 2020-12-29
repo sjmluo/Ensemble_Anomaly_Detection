@@ -57,18 +57,18 @@ def crossvalidation(inp, labels, model, epochs=500, k = 5, seed = 0, verbose = 0
         hist = model.fit(ktrainin, ktrainout, epochs = epochs, verbose=0).history
 
         pred = model.predict(ktestin)
-        pred = np.where(np.array(pred[1]) >= 0.5, 1, 0)
-        Y = ktestout[1]
+        pred = np.where(np.array(pred[-1]) >= 0.5, 1, 0)
+        Y = ktestout[-1]
         cm = np.zeros([2,2])
         np.add.at(cm, (pred, Y.astype(int)), 1)
-        results['loss'].append([hist['loss'][-1],hist['output_1_loss'][-1],hist['output_2_loss'][-1]])
+        results['loss'].append([hist['loss'][-1],hist['output_12_loss'][-1]])
         results['acc'].append((cm[0][0] + cm[1][1])/cm.sum())
         results['spec'].append(cm[1][1]/(cm[:,1].sum()))
         results['cm'].append(cm)
 
     return results
 
-def modeltests(inp, labels, testdata, model, name, description = None, epochs=500, k = 5, seed = 0, verbose = 0):
+def modeltests(inp, labels, testdata, model, name, description = None, epochs=500, k = 5, seed = 0, verbose = 0, testsplit = 0.2, dir = 'src/reports/test1'):
     import matplotlib.pyplot as plt
     import time
     np.random.seed(seed)
@@ -89,10 +89,12 @@ def modeltests(inp, labels, testdata, model, name, description = None, epochs=50
     print(f'|Acc|Spec|Loss|\n{ave}|{spec}|{loss}')
     print(f'Took {elapsed} seconds')
 
-    name = f'src/reports/test1/{name}'
+    name = f'{dir}/{name}'
 
     model.reset_metrics()
 
+    if testdata == None:
+        (inp, labels), testdata = splitdata(inp, labels, testsplit, seed)
     start = time.perf_counter()
     model.fit(inp, labels, epochs=epochs, batch_size=64, verbose = verbose)
     elapsedtest = time.perf_counter() - start
@@ -116,7 +118,7 @@ def modeltests(inp, labels, testdata, model, name, description = None, epochs=50
     with open(f'{name}', 'w') as file:
         #file.write(name)
         if description is not None:
-            file.write(description)
+            file.write(f'{description}\n')
         file.writelines('\n'.join([astr, f'Average accuracy: {ave}', f'Average specificity: {spec}', 
         f'Average loss: {loss}', f'Average cm: {a}', f'|Acc|Spec|Loss|\n{ave}|{spec}|{loss}',f'Test cm: {tcm}', 
         f'CV took {elapsed} seconds', f'Fitting all data took {elapsedtest} seconds', 
@@ -127,3 +129,14 @@ def modeltests(inp, labels, testdata, model, name, description = None, epochs=50
     plt.plot(X[np.logical_and(Y==0, Y == pred),0], X[np.logical_and(Y==0, Y == pred),1], '.k')
     plt.plot(X[np.logical_and(Y==1, Y == pred),0], X[np.logical_and(Y==1, Y == pred),1], 'xk')
     plt.savefig(f'{name}.png')
+
+@tf.function
+def weightedce(y_true, y_pred, weights, conf = 0.5):    
+    conf = tf.constant(conf)
+
+    predclass = tf.where(tf.less(tf.squeeze(y_pred), conf), tf.constant(0,dtype=tf.int32), tf.constant(1,dtype=tf.int32))
+    predclass = tf.gather(weights, predclass)
+
+    mask = tf.where(tf.math.equal(tf.squeeze(y_true), tf.constant(0.)), predclass[:,0], predclass[:,1])
+
+    return tf.math.multiply(tf.keras.losses.binary_crossentropy(y_true, y_pred), mask)
