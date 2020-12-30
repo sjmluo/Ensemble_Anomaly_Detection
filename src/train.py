@@ -25,36 +25,62 @@ def train(model:tf.keras.Model, inp, labels, lossfunction = None, optimizer = No
 
     return losses
 
-def splitdata(inp, output, testsplit = 0.2, seed = 0):
-    np.random.seed(0)
-    z = np.asarray(list(zip(inp, output)))
+def splitdata(inp, labels, testsplit = 0.2, seed = 0):
+    np.random.seed(seed)
+    inp, labels = np.array(list(zip(*inp))), np.array(list(zip(*labels)))
+    z = np.array(list(zip(inp, labels)))
     np.random.shuffle(z)
+
     ind = int(len(inp)*(1 - testsplit))
-    return z[:ind], z[ind:]
+    train, test = z[:ind], z[ind:]
+    trainin, trainout = rowtocols(train[:,0]), rowtocols(train[:,1])
+    testin, testout = rowtocols(test[:,0]), rowtocols(test[:,1])
+
+    return (trainin, trainout), (testin, testout)
+
+def rowtocols(inp):
+    res = []
+    for i in range(len(inp[0])):
+        res.append(np.stack(np.vstack(inp)[:,i]))
+    return res
+
+def cvcol(inp):
+    res = []
+    for t in inp:
+        res.append(rowtocols(t))
+    return np.asarray(res)
+
+def joinfolds(folds):
+    stacked = np.column_stack(folds)
+    return [np.vstack(stacked[x]) for x in range(len(stacked))]
+
+def kfoldstratify(labels, k):
+    labels = labels.reshape([len(labels)])
+    class1 = np.squeeze(np.where(labels==1))
+    class0 = np.squeeze(np.where(labels==0))
+    w = [np.concatenate(x) for x in zip(np.array_split(class0,k), 
+                                reversed(np.array_split(class1,k)))]
+    [np.random.shuffle(x) for x in w]
+
+    return np.array(w)
 
 def crossvalidation(inp, labels, model, epochs=500, k = 5, seed = 0, verbose = 0):
     results = {'acc':[], 'loss':[], 'cm':[], 'spec':[]}
     
-    np.random.seed(seed)
-    #labels = [np.expand_dims(l,1) for l in labels]
-    z = np.array(list(zip(*labels)))
-    z = np.array(list(zip(inp, z)))
-    np.random.shuffle(z)
-    inp = np.array(np.array_split(np.stack(z[:,0]),5))
-    #print(z[:,1])
-    labels = np.array(np.array_split(np.stack(z[:,1]),5))
+    fold_ind = kfoldstratify(labels[-1], k)
 
     for i in range(k):
         model.reset_metrics()
         arr = np.setdiff1d(list(range(k)), [i]).astype(int)
-        ktrainout = np.vstack(np.vstack(labels[arr]))
-        
-        ktrainin, ktrainout = np.asarray(np.vstack(inp[arr])).astype('float32'), [np.vstack(ktrainout[:,0]), np.vstack(ktrainout[:,1])]
-        
-        ktestout = np.vstack(labels[i])
-        ktestin, ktestout = np.vstack(inp[i]).astype('float32'), [np.vstack(ktestout[:,0]), np.vstack(ktestout[:,1])]
+        testind, trainind = np.concatenate(fold_ind[arr]), fold_ind[i]
 
-        hist = model.fit(ktrainin, ktrainout, epochs = epochs, verbose=0).history
+        ktrainout = [col[trainind] for col in labels]
+        ktrainin = [col[trainind] for col in inp]
+        
+        ktestout = [col[testind] for col in labels]
+        ktestin = [col[testind] for col in inp]
+        
+        hist = model.fit(ktrainin, ktrainout, epochs = epochs, verbose=verbose).history
 
         pred = model.predict(ktestin)
         pred = np.where(np.array(pred[-1]) >= 0.5, 1, 0)
@@ -68,7 +94,7 @@ def crossvalidation(inp, labels, model, epochs=500, k = 5, seed = 0, verbose = 0
 
     return results
 
-def modeltests(inp, labels, testdata, model, name, description = None, epochs=500, k = 5, seed = 0, verbose = 0, testsplit = 0.2, dir = 'src/reports/test1'):
+def modeltests(inp, labels, testdata, model, name, description = None, epochs=500, k = 5, seed = 0, verbose = 0, testsplit = 0.2, dir = 'src/reports/test1', plot = False):
     import matplotlib.pyplot as plt
     import time
     np.random.seed(seed)
@@ -99,18 +125,19 @@ def modeltests(inp, labels, testdata, model, name, description = None, epochs=50
     model.fit(inp, labels, epochs=epochs, batch_size=64, verbose = verbose)
     elapsedtest = time.perf_counter() - start
 
-    X,Y = labels
+    if plot:
+        X,Y = labels
 
-    Y = np.hstack(Y)
+        Y = np.hstack(Y)
 
-    plt.plot(X[Y==0,0], X[Y==0,1], '.b')
-    plt.plot(X[Y==1,0], X[Y==1,1], 'xb')
+        plt.plot(X[Y==0,0], X[Y==0,1], '.b')
+        plt.plot(X[Y==1,0], X[Y==1,1], 'xb')
 
     X,Y = testdata
 
     pred = model.predict(X)
-    pred = np.where(np.array(pred[1]) >= 0.5, 1, 0)
-    Y = np.hstack(Y)
+    pred = np.where(np.array(pred[-1]) >= 0.5, 1, 0)
+    Y = Y[-1]
     tcm = np.zeros([2,2])
     pred = np.squeeze(pred,1)
     np.add.at(tcm, (pred, Y.astype(int)), 1)
@@ -124,11 +151,12 @@ def modeltests(inp, labels, testdata, model, name, description = None, epochs=50
         f'CV took {elapsed} seconds', f'Fitting all data took {elapsedtest} seconds', 
         f'||True 0| True 1|\n|-|-|-|\n|Predicted 0|{tcm[0][0]}|{tcm[0][1]}\n|Predicted 1|{tcm[1][0]}|{tcm[1][1]}\n']))
 
-    plt.plot(X[np.logical_and(Y==0, Y != pred),0], X[np.logical_and(Y==0, Y != pred),1], '.r')
-    plt.plot(X[np.logical_and(Y==1, Y != pred),0], X[np.logical_and(Y==1, Y != pred),1], 'xr')
-    plt.plot(X[np.logical_and(Y==0, Y == pred),0], X[np.logical_and(Y==0, Y == pred),1], '.k')
-    plt.plot(X[np.logical_and(Y==1, Y == pred),0], X[np.logical_and(Y==1, Y == pred),1], 'xk')
-    plt.savefig(f'{name}.png')
+    if plot:
+        plt.plot(X[np.logical_and(Y==0, Y != pred),0], X[np.logical_and(Y==0, Y != pred),1], '.r')
+        plt.plot(X[np.logical_and(Y==1, Y != pred),0], X[np.logical_and(Y==1, Y != pred),1], 'xr')
+        plt.plot(X[np.logical_and(Y==0, Y == pred),0], X[np.logical_and(Y==0, Y == pred),1], '.k')
+        plt.plot(X[np.logical_and(Y==1, Y == pred),0], X[np.logical_and(Y==1, Y == pred),1], 'xk')
+        plt.savefig(f'{name}.png')
 
 @tf.function
 def weightedce(y_true, y_pred, weights, conf = 0.5):    
