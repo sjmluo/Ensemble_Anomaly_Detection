@@ -64,43 +64,68 @@ def kfoldstratify(labels, k):
 
     return np.array(w)
 
-def crossvalidation(inp, labels, model, epochs=500, k = 5, seed = 0, verbose = 0):
+def crossvalidation(inp, labels, model, epochs=500, k = 5, seed = 0, verbose = 0, kwargs = {}, loss_record = ['loss']):
     results = {'acc':[], 'loss':[], 'cm':[], 'spec':[]}
-    
     fold_ind = kfoldstratify(labels[-1], k)
 
     for i in range(k):
         model.reset_metrics()
+        model.reset_states()
         arr = np.setdiff1d(list(range(k)), [i]).astype(int)
-        testind, trainind = np.concatenate(fold_ind[arr]), fold_ind[i]
+        trainind, testind = np.concatenate(fold_ind[arr]), fold_ind[i]
 
         ktrainout = [col[trainind] for col in labels]
         ktrainin = [col[trainind] for col in inp]
         
         ktestout = [col[testind] for col in labels]
         ktestin = [col[testind] for col in inp]
-        
-        hist = model.fit(ktrainin, ktrainout, epochs = epochs, verbose=verbose).history
+        print(f'Training on {len(ktrainin[0])}, testing on {len(ktestin[0])}')
+        default_kwargs = {'x':ktrainin, 'y':ktrainout, 'epochs': epochs, 'verbose': verbose, 'validation_data':(ktestin, ktestout)}
+        default_kwargs.update(kwargs)
+
+        hist = model.fit(**default_kwargs).history
 
         pred = model.predict(ktestin)
         pred = np.where(np.array(pred[-1]) >= 0.5, 1, 0)
         Y = ktestout[-1]
         cm = np.zeros([2,2])
         np.add.at(cm, (pred, Y.astype(int)), 1)
-        results['loss'].append([hist['loss'][-1],hist['output_12_loss'][-1]])
+        results['loss'].append([hist[l][-1] for l in loss_record])
         results['acc'].append((cm[0][0] + cm[1][1])/cm.sum())
         results['spec'].append(cm[1][1]/(cm[:,1].sum()))
         results['cm'].append(cm)
 
     return results
 
-def modeltests(inp, labels, testdata, model, name, description = None, epochs=500, k = 5, seed = 0, verbose = 0, testsplit = 0.2, dir = 'src/reports/test1', plot = False):
-    import matplotlib.pyplot as plt
+def modeltests(inp, labels, testdata, model, name, 
+                description = None, 
+                epochs=500, 
+                k = 5, 
+                seed = 0, 
+                verbose = 0, 
+                testsplit = 0.2, 
+                dir = 'src/reports/test1', 
+                plot = False,
+                **kwargs):
+    tf.keras.backend.clear_session()
+
+    if plot: import matplotlib.pyplot as plt
     import time
     np.random.seed(seed)
+    allowed_kwargs = {'fit_kwargs', 'cv_kwargs', 'overall_kwargs'}
+    for kwarg in kwargs:
+        if kwarg not in allowed_kwargs:
+            raise ValueError(f'{kwarg} is not a valid kwarg')
+
+    overall_kwargs = kwargs['overall_kwargs'] if 'overall_kwargs' in kwargs else {}
+    fit_kwargs = overall_kwargs.copy()
+    cv_kwargs = overall_kwargs.copy()
+
+    if 'fit_kwargs' in kwargs: fit_kwargs.update(kwargs['fit_kwargs'])
+    if 'cv_kwargs' in kwargs: cv_kwargs.update(kwargs['cv_kwargs'])
 
     start = time.perf_counter()
-    cv = crossvalidation(inp, labels, model, epochs, k, seed, verbose = verbose)
+    cv = crossvalidation(inp, labels, model, epochs, k, seed, verbose = verbose, kwargs = cv_kwargs)
     elapsed = time.perf_counter() - start
     a = np.mean(cv['cm'],axis = 0)
     ave = (a[0][0] + a[1][1])/a.sum()
@@ -118,11 +143,17 @@ def modeltests(inp, labels, testdata, model, name, description = None, epochs=50
     name = f'{dir}/{name}'
 
     model.reset_metrics()
+    model.reset_states()
 
     if testdata == None:
         (inp, labels), testdata = splitdata(inp, labels, testsplit, seed)
+    
+    default_kwargs = {'x':inp, 'y':labels, 'epochs': epochs, 'verbose': verbose, 'validation_data':testdata}
+    default_kwargs.update(overall_kwargs)
+
     start = time.perf_counter()
-    model.fit(inp, labels, epochs=epochs, batch_size=64, verbose = verbose)
+
+    model.fit(**default_kwargs)
     elapsedtest = time.perf_counter() - start
 
     if plot:
