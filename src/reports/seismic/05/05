@@ -1,0 +1,27 @@
+VAE([[4,4,4,4,4,4,4,8,8,8,8],[8,8,8,8,8,8,16,32,32,32,32]], [516, 256, 128], 64, 
+        outputsize=[[4,4,4,4,4,4,8,16,16,16,16,4], [1,1,1,1,1,1,2,4,4,4,4,1]],
+        finalactivation=[None,None,None,None,None,None,None,None,None,None,None,'sigmoid'])
+        optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
+        losses = [tf.losses.mean_absolute_error]*11
+        losses.append(tf.losses.binary_crossentropy)
+        vae.compile(optimizer, loss=losses, loss_weights=[1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 10]), using mae instead of mse, manually resetting callbacks
+||True 0| True 1|
+|-|-|-|
+|Predicted 0|482.8|34.0
+|Predicted 1|0.0|0.0
+
+Average accuracy: 0.9342105263157896
+Average specificity: 0.0
+Average loss: [1.3823081]
+Average cm: [[482.8  34. ]
+ [  0.    0. ]]
+|Acc|Spec|Loss|
+0.9342105263157896|0.0|[1.3823081]
+Test cm: [[475.  42.]
+ [  0.   0.]]
+CV took 344.610467941 seconds
+Fitting all data took 47.592308782001055 seconds
+||True 0| True 1|
+|-|-|-|
+|Predicted 0|475.0|42.0
+|Predicted 1|0.0|0.0

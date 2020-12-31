@@ -1,0 +1,20 @@
+64|32, Latent of 16 500 epochs against 200 from each distribution and 20 outliers with weighted loss||True 0| True 1|
+|-|-|-|
+|Predicted 0|120.0|1.6
+|Predicted 1|0.0|2.4
+
+Average accuracy: 0.9870967741935485
+Average specificity: 0.6
+Average loss: [0.31774872 0.00606423 0.31168451]
+Average cm: [[120.    1.6]
+ [  0.    2.4]]
+|Acc|Spec|Loss|
+0.9870967741935485|0.6|[0.31774872 0.00606423 0.31168451]
+Test cm: [[300.  29.]
+ [  0.  71.]]
+CV took 566.0685357810003 seconds
+Fitting all data took 127.58434280500023 seconds
+||True 0| True 1|
+|-|-|-|
+|Predicted 0|300.0|29.0
+|Predicted 1|0.0|71.0

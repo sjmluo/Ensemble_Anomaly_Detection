@@ -1,0 +1,23 @@
+VAE([[4,4,4,4,4,4,4,8,8,8,8],[8,8,8,8,8,8,16,32,32,32,32]], [1024, 512, 128], 2, 
+        outputsize=[[128],[32], [1]],
+        finalactivation=['sigmoid']) with weightedce[[1,10],[10,5]]
+||True 0| True 1|
+|-|-|-|
+|Predicted 0|482.8|33.6
+|Predicted 1|0.0|0.4
+
+Average accuracy: 0.934984520123839
+Average specificity: 0.011764705882352941
+Average loss: [1.01144471]
+Average cm: [[4.828e+02 3.360e+01]
+ [0.000e+00 4.000e-01]]
+|Acc|Spec|Loss|
+0.934984520123839|0.011764705882352941|[1.01144471]
+Test cm: [[475.  42.]
+ [  0.   0.]]
+CV took 112.7881949750008 seconds
+Fitting all data took 25.226418802998523 seconds
+||True 0| True 1|
+|-|-|-|
+|Predicted 0|475.0|42.0
+|Predicted 1|0.0|0.0

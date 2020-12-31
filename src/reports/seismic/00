@@ -1,0 +1,24 @@
+VAE([[1,1,1,1,1,1,2,4,4,4,4],[4,4,4,4,4,4,8,16,16,16,16]], [256, 128, 64], 16, 
+        outputsize=[[4,4,4,4,4,4,8,16,16,16,16,4], [1,1,1,1,1,1,2,4,4,4,4,1]],
+        finalactivation=[None,None,None,None,None,None,None,None,None,None,None,'sigmoid'])
+         500 epochs with bce
+||True 0| True 1|
+|-|-|-|
+|Predicted 0|465.8|26.2
+|Predicted 1|17.0|7.8
+
+Average accuracy: 0.9164086687306503
+Average specificity: 0.22941176470588234
+Average loss: [0.51446107 0.02717045]
+Average cm: [[465.8  26.2]
+ [ 17.    7.8]]
+|Acc|Spec|Loss|
+0.9164086687306503|0.22941176470588234|[0.51446107 0.02717045]
+Test cm: [[231325.  20454.]
+ [ 14250.   1260.]]
+CV took 2216.7770943699998 seconds
+Fitting all data took 226.31714555300005 seconds
+||True 0| True 1|
+|-|-|-|
+|Predicted 0|231325.0|20454.0
+|Predicted 1|14250.0|1260.0

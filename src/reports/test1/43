@@ -1,0 +1,20 @@
+64|16, Latent of 4, 500 epochs against 200 from each distribution and 20 outliers with weighted loss with tf.function tag||True 0| True 1|
+|-|-|-|
+|Predicted 0|120.0|0.8
+|Predicted 1|0.0|3.2
+
+Average accuracy: 0.9935483870967742
+Average specificity: 0.8
+Average loss: [0.0187818  0.00819341 0.01058839]
+Average cm: [[120.    0.8]
+ [  0.    3.2]]
+|Acc|Spec|Loss|
+0.9935483870967742|0.8|[0.0187818  0.00819341 0.01058839]
+Test cm: [[300.  17.]
+ [  0.  83.]]
+CV took 153.0533262379995 seconds
+Fitting all data took 19.69400842399955 seconds
+||True 0| True 1|
+|-|-|-|
+|Predicted 0|300.0|17.0
+|Predicted 1|0.0|83.0
