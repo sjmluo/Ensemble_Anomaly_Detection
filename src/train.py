@@ -58,11 +58,28 @@ def kfoldstratify(labels, k):
     labels = labels.reshape([len(labels)])
     class1 = np.squeeze(np.where(labels==1))
     class0 = np.squeeze(np.where(labels==0))
+    np.random.shuffle(class1)
+    np.random.shuffle(class0)
     w = [np.concatenate(x) for x in zip(np.array_split(class0,k), 
                                 reversed(np.array_split(class1,k)))]
     [np.random.shuffle(x) for x in w]
 
     return np.array(w)
+
+def reset_model(model):
+    for ix, layer in enumerate(model.layers):
+        if hasattr(model.layers[ix], 'kernel_initializer') and \
+                hasattr(model.layers[ix], 'bias_initializer'):
+            weight_initializer = model.layers[ix].kernel_initializer
+            bias_initializer = model.layers[ix].bias_initializer
+            if len(layer.get_weights()) != 2:
+                print('oops')
+                continue
+            old_weights, old_biases = model.layers[ix].get_weights()
+
+            model.layers[ix].set_weights([
+                weight_initializer(shape=old_weights.shape),
+                bias_initializer(shape=len(old_biases))])
 
 def crossvalidation(inp, labels, model, epochs=500, k = 5, seed = 0, verbose = 0, kwargs = {}, loss_record = ['loss']):
     results = {'acc':[], 'loss':[], 'cm':[], 'spec':[]}
@@ -71,6 +88,7 @@ def crossvalidation(inp, labels, model, epochs=500, k = 5, seed = 0, verbose = 0
     for i in range(k):
         model.reset_metrics()
         model.reset_states()
+        model.reset_model()
         arr = np.setdiff1d(list(range(k)), [i]).astype(int)
         trainind, testind = np.concatenate(fold_ind[arr]), fold_ind[i]
 
@@ -82,6 +100,7 @@ def crossvalidation(inp, labels, model, epochs=500, k = 5, seed = 0, verbose = 0
         print(f'Training on {len(ktrainin[0])}, testing on {len(ktestin[0])}')
         default_kwargs = {'x':ktrainin, 'y':ktrainout, 'epochs': epochs, 'verbose': verbose, 'validation_data':(ktestin, ktestout)}
         default_kwargs.update(kwargs)
+        default_kwargs['callbacks'] = kwargs['callbacks']()
 
         hist = model.fit(**default_kwargs).history
 
@@ -109,7 +128,7 @@ def modeltests(inp, labels, testdata, model, name,
                 **kwargs):
     tf.keras.backend.clear_session()
 
-    if plot: import matplotlib.pyplot as plt
+    import matplotlib.pyplot as plt
     import time
     np.random.seed(seed)
     allowed_kwargs = {'fit_kwargs', 'cv_kwargs', 'overall_kwargs'}
@@ -144,16 +163,18 @@ def modeltests(inp, labels, testdata, model, name,
 
     model.reset_metrics()
     model.reset_states()
+    model.reset_model()
 
     if testdata == None:
         (inp, labels), testdata = splitdata(inp, labels, testsplit, seed)
     
     default_kwargs = {'x':inp, 'y':labels, 'epochs': epochs, 'verbose': verbose, 'validation_data':testdata}
     default_kwargs.update(overall_kwargs)
+    default_kwargs['callbacks'] = overall_kwargs['callbacks']()
 
     start = time.perf_counter()
 
-    model.fit(**default_kwargs)
+    hist = model.fit(**default_kwargs).history
     elapsedtest = time.perf_counter() - start
 
     if plot:
@@ -188,6 +209,7 @@ def modeltests(inp, labels, testdata, model, name,
         plt.plot(X[np.logical_and(Y==0, Y == pred),0], X[np.logical_and(Y==0, Y == pred),1], '.k')
         plt.plot(X[np.logical_and(Y==1, Y == pred),0], X[np.logical_and(Y==1, Y == pred),1], 'xk')
         plt.savefig(f'{name}.png')
+    
 
 @tf.function
 def weightedce(y_true, y_pred, weights, conf = 0.5):    
