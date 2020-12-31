@@ -1,4 +1,5 @@
 import tensorflow as tf
+import os
 from VAE import VAE
 import numpy as np
 
@@ -81,7 +82,7 @@ def reset_model(model):
                 weight_initializer(shape=old_weights.shape),
                 bias_initializer(shape=len(old_biases))])
 
-def crossvalidation(inp, labels, model, epochs=500, k = 5, seed = 0, verbose = 0, kwargs = {}, loss_record = ['loss']):
+def crossvalidation(inp, labels, model, wdir, epochs=500, k = 5, seed = 0, verbose = 0, kwargs = {}, loss_record = ['loss']):
     results = {'acc':[], 'loss':[], 'cm':[], 'spec':[]}
     fold_ind = kfoldstratify(labels[-1], k)
 
@@ -100,7 +101,7 @@ def crossvalidation(inp, labels, model, epochs=500, k = 5, seed = 0, verbose = 0
         print(f'Training on {len(ktrainin[0])}, testing on {len(ktestin[0])}')
         default_kwargs = {'x':ktrainin, 'y':ktrainout, 'epochs': epochs, 'verbose': verbose, 'validation_data':(ktestin, ktestout)}
         default_kwargs.update(kwargs)
-        default_kwargs['callbacks'] = kwargs['callbacks']()
+        default_kwargs['callbacks'] = kwargs['callbacks'](f'{wdir}/logs/cv{i}')
 
         hist = model.fit(**default_kwargs).history
 
@@ -123,7 +124,7 @@ def modeltests(inp, labels, testdata, model, name,
                 seed = 0, 
                 verbose = 0, 
                 testsplit = 0.2, 
-                dir = 'src/reports/test1', 
+                wdir = 'src/reports/test1', 
                 plot = False,
                 **kwargs):
     tf.keras.backend.clear_session()
@@ -143,14 +144,18 @@ def modeltests(inp, labels, testdata, model, name,
     if 'fit_kwargs' in kwargs: fit_kwargs.update(kwargs['fit_kwargs'])
     if 'cv_kwargs' in kwargs: cv_kwargs.update(kwargs['cv_kwargs'])
 
+    wdir = f'{wdir}/{name}'
+    os.mkdir(f'{wdir}')
+
     start = time.perf_counter()
-    cv = crossvalidation(inp, labels, model, epochs, k, seed, verbose = verbose, kwargs = cv_kwargs)
+    cv = crossvalidation(inp, labels, model, wdir, epochs, k, seed, verbose = verbose, kwargs = cv_kwargs)
     elapsed = time.perf_counter() - start
     a = np.mean(cv['cm'],axis = 0)
     ave = (a[0][0] + a[1][1])/a.sum()
     spec = a[1][1]/(a[:,1].sum())
     loss = np.mean(cv['loss'],0)
     astr = f'||True 0| True 1|\n|-|-|-|\n|Predicted 0|{a[0][0]}|{a[0][1]}\n|Predicted 1|{a[1][0]}|{a[1][1]}\n'
+    sensi = a[0][0]/a[:,0].sum()
     print(name)
     print(astr)
     print(f'Average accuracy: {ave}')
@@ -159,7 +164,6 @@ def modeltests(inp, labels, testdata, model, name,
     print(f'|Acc|Spec|Loss|\n{ave}|{spec}|{loss}')
     print(f'Took {elapsed} seconds')
 
-    name = f'{dir}/{name}'
 
     model.reset_metrics()
     model.reset_states()
@@ -170,7 +174,7 @@ def modeltests(inp, labels, testdata, model, name,
     
     default_kwargs = {'x':inp, 'y':labels, 'epochs': epochs, 'verbose': verbose, 'validation_data':testdata}
     default_kwargs.update(overall_kwargs)
-    default_kwargs['callbacks'] = overall_kwargs['callbacks']()
+    default_kwargs['callbacks'] = overall_kwargs['callbacks'](f'{wdir}/logs/final')
 
     start = time.perf_counter()
 
@@ -189,19 +193,21 @@ def modeltests(inp, labels, testdata, model, name,
 
     pred = model.predict(X)
     pred = np.where(np.array(pred[-1]) >= 0.5, 1, 0)
-    Y = Y[-1]
+    Y = np.squeeze(Y[-1]).astype(int)
     tcm = np.zeros([2,2])
     pred = np.squeeze(pred,1)
     np.add.at(tcm, (pred, Y.astype(int)), 1)
 
-    with open(f'{name}', 'w') as file:
+    with open(f'{wdir}/results', 'w') as file:
         #file.write(name)
         if description is not None:
             file.write(f'{description}\n')
-        file.writelines('\n'.join([astr, f'Average accuracy: {ave}', f'Average specificity: {spec}', 
-        f'Average loss: {loss}', f'Average cm: {a}', f'|Acc|Spec|Loss|\n{ave}|{spec}|{loss}',f'Test cm: {tcm}', 
-        f'CV took {elapsed} seconds', f'Fitting all data took {elapsedtest} seconds', 
-        f'||True 0| True 1|\n|-|-|-|\n|Predicted 0|{tcm[0][0]}|{tcm[0][1]}\n|Predicted 1|{tcm[1][0]}|{tcm[1][1]}\n']))
+        file.writelines('\n'.join([astr, f'Average accuracy: {ave}', f'Balanced acc: {(sensi+spec)/2}', 
+        f'Average specificity: {spec}', f'Average sensitivity: {sensi}',
+        f'Average loss: {loss}', f'Average cm:', astr, f'Test cm:',
+        f'||True 0| True 1|\n|-|-|-|\n|Predicted 0|{tcm[0][0]}|{tcm[0][1]}\n|Predicted 1|{tcm[1][0]}|{tcm[1][1]}\n', 
+        f'|Acc|Spec|Loss|\n{ave}|{spec}|{loss}',
+        f'CV took {elapsed} seconds', f'Fitting all data took {elapsedtest} seconds', ]))
 
     if plot:
         plt.plot(X[np.logical_and(Y==0, Y != pred),0], X[np.logical_and(Y==0, Y != pred),1], '.r')
