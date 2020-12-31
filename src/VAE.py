@@ -72,6 +72,15 @@ class VAE(tf.keras.Model):
         self.encoder = Encoder(inlayersize, latentsize)
         self.decoder = Decoder(outlayersize, outputsize)
 
+        self.inputsize = inputsize
+        self.inputsize = inputsize
+        self.inlayersize = inlayersize
+        self.latentsize = latentsize
+        self.outlayersize = outlayersize
+        self.outputsize = outputsize
+        self.finalactivation = finalactivation
+        self.compile_fn = None
+
     def call(self, inp):
         for level in self.inlayers:
             inp = [layer(i) for layer, i in zip(level, inp)]
@@ -90,6 +99,31 @@ class VAE(tf.keras.Model):
             for level in self.outlayers[1:]: # TODO: Get rid of for loops
                 output = [layer(i) for layer, i in zip(level, output)]
         return output
+    
+    def reset_model(self):
+        tf.keras.backend.clear_session()
+
+        self.inlayers = []
+        self.outlayers = []
+
+        for inputlayer in self.inputsize:
+            self.inlayers.append([tf.keras.layers.Dense(size, activation = 'relu') for size in inputlayer])
+
+        for outputlayer in self.outputsize[:-1]:
+            self.outlayers.append([tf.keras.layers.Dense(size) for size in outputlayer])
+        
+        if len(self.outputsize) > 0:
+            self.outlayers.append([tf.keras.layers.Dense(size, activation = act) for size, act in zip(self.outputsize[-1], self.finalactivation)])
+
+        self.encoder = Encoder(self.inlayersize, self.latentsize)
+        self.decoder = Decoder(self.outlayersize, self.outputsize)
+        if self.compile_fn is not None: self._compile()
+
+    def addcompile(self, fn):
+        self.compile_fn = fn
+
+    def _compile(self):
+        self.compile_fn(self)
 
 def testloss(labels, predictions):
     e1 = tf.keras.losses.mean_squared_error(labels[0], predictions[0])
