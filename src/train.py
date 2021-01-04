@@ -1,7 +1,23 @@
+import imblearn
 import tensorflow as tf
 import os
-from VAE import VAE
+from src.VAE import VAE
 import numpy as np
+import pandas as pd
+
+def train_preprocessing(inp, classes):
+    return inp, classes
+    inp = colstorows(inp)
+    oversample = imblearn.over_sampling.SMOTE()
+    X,y = oversample.fit_resample(inp, classes)
+    X = rowtocols(X)
+    return X, list(X) + [y]
+
+def colstorows(inp):
+    df = pd.DataFrame()
+    for i,c in enumerate(inp):
+        df[i] = list(c)
+    return df.to_numpy()
 
 #@tf.function
 def train_step(model:tf.keras.Model, inp, labels, lossfunction, optimizer):
@@ -82,6 +98,15 @@ def reset_model(model):
                 weight_initializer(shape=old_weights.shape),
                 bias_initializer(shape=len(old_biases))])
 
+def confusionmat(pred, true):
+    pred = np.squeeze(pred,1)
+    pred = np.where(np.array(pred) >= 0.5, 1, 0)
+    true = np.squeeze(true).astype(int)
+    cm = np.zeros([2,2])
+    np.add.at(cm, (pred, true.astype(int)), 1)
+    return cm
+
+
 def crossvalidation(inp, labels, model, wdir, epochs=500, k = 5, seed = 0, verbose = 0, kwargs = {}, loss_record = ['loss']):
     results = {'acc':[], 'loss':[], 'cm':[], 'spec':[]}
     fold_ind = kfoldstratify(labels[-1], k)
@@ -95,6 +120,8 @@ def crossvalidation(inp, labels, model, wdir, epochs=500, k = 5, seed = 0, verbo
 
         ktrainout = [col[trainind] for col in labels]
         ktrainin = [col[trainind] for col in inp]
+
+        ktrainin, ktrainout = train_preprocessing(ktrainin, ktrainout[-1])
         
         ktestout = [col[testind] for col in labels]
         ktestin = [col[testind] for col in inp]
@@ -106,10 +133,7 @@ def crossvalidation(inp, labels, model, wdir, epochs=500, k = 5, seed = 0, verbo
         hist = model.fit(**default_kwargs).history
 
         pred = model.predict(ktestin)
-        pred = np.where(np.array(pred[-1]) >= 0.5, 1, 0)
-        Y = ktestout[-1]
-        cm = np.zeros([2,2])
-        np.add.at(cm, (pred, Y.astype(int)), 1)
+        cm = confusionmat(pred[-1], ktestout[-1])
         results['loss'].append([hist[l][-1] for l in loss_record])
         results['acc'].append((cm[0][0] + cm[1][1])/cm.sum())
         results['spec'].append(cm[1][1]/(cm[:,1].sum()))
@@ -170,7 +194,19 @@ def modeltests(inp, labels, testdata, model, name,
     model.reset_model()
 
     if testdata == None:
-        (inp, labels), testdata = splitdata(inp, labels, testsplit, seed)
+        fold_ind = kfoldstratify(labels[-1], k)
+        arr = np.setdiff1d(list(range(k)), [0]).astype(int)
+        trainind, testind = np.concatenate(fold_ind[arr]), fold_ind[0]
+
+        ktrainout = [col[trainind] for col in labels]
+        ktrainin = [col[trainind] for col in inp]
+        
+        ktestout = [col[testind] for col in labels]
+        ktestin = [col[testind] for col in inp]
+
+        (inp, labels), testdata = (ktrainin, ktrainout),(ktestin, ktestout)
+
+        #(inp, labels), testdata = splitdata(inp, labels, testsplit, seed)
     
     default_kwargs = {'x':inp, 'y':labels, 'epochs': epochs, 'verbose': verbose, 'validation_data':testdata}
     default_kwargs.update(overall_kwargs)
@@ -192,11 +228,7 @@ def modeltests(inp, labels, testdata, model, name,
     X,Y = testdata
 
     pred = model.predict(X)
-    pred = np.where(np.array(pred[-1]) >= 0.5, 1, 0)
-    Y = np.squeeze(Y[-1]).astype(int)
-    tcm = np.zeros([2,2])
-    pred = np.squeeze(pred,1)
-    np.add.at(tcm, (pred, Y.astype(int)), 1)
+    tcm = confusionmat(pred[-1], Y[-1])
 
     with open(f'{wdir}/results', 'w') as file:
         #file.write(name)
@@ -224,6 +256,6 @@ def weightedce(y_true, y_pred, weights, conf = 0.5):
     predclass = tf.where(tf.less(tf.squeeze(y_pred), conf), tf.constant(0,dtype=tf.int32), tf.constant(1,dtype=tf.int32))
     predclass = tf.gather(weights, predclass)
 
-    mask = tf.where(tf.math.equal(tf.squeeze(y_true), tf.constant(0.)), predclass[:,0], predclass[:,1])
+    mask = tf.where(tf.math.equal(tf.squeeze(y_true), tf.constant(0)), predclass[:,0], predclass[:,1])
 
     return tf.math.multiply(tf.keras.losses.binary_crossentropy(y_true, y_pred), mask)
