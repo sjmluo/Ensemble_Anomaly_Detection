@@ -8,7 +8,7 @@ import pandas as pd
 def train_preprocessing(inp, classes):
     return inp, classes
     inp = colstorows(inp)
-    oversample = imblearn.over_sampling.SMOTE()
+    oversample = imblearn.under_sampling.AllKNN()
     X,y = oversample.fit_resample(inp, classes)
     X = rowtocols(X)
     return X, list(X) + [y]
@@ -42,18 +42,22 @@ def train(model:tf.keras.Model, inp, labels, lossfunction = None, optimizer = No
 
     return losses
 
-def splitdata(inp, labels, testsplit = 0.2, seed = 0):
+def splitdata(inp, labels, testsplit = (2,10), seed = 0):
+    if testsplit[0] == 1: #quick bodge
+        testsplit[0] *=2
+        testsplit[1] *=2
     np.random.seed(seed)
-    inp, labels = np.array(list(zip(*inp))), np.array(list(zip(*labels)))
-    z = np.array(list(zip(inp, labels)))
-    np.random.shuffle(z)
+    fold_ind = kfoldstratify(labels[-1], testsplit[1])
+    arr = np.setdiff1d(list(range(testsplit[1])), list(range(testsplit[0]))).astype(int)
+    trainind, testind = np.concatenate(fold_ind[arr]), np.concatenate(fold_ind[list(range(testsplit[0]))])
+    ktrainout = [col[trainind] for col in labels]
+    ktrainin = [col[trainind] for col in inp]
+    
+    ktestout = [col[testind] for col in labels]
+    ktestin = [col[testind] for col in inp]
 
-    ind = int(len(inp)*(1 - testsplit))
-    train, test = z[:ind], z[ind:]
-    trainin, trainout = rowtocols(train[:,0]), rowtocols(train[:,1])
-    testin, testout = rowtocols(test[:,0]), rowtocols(test[:,1])
 
-    return (trainin, trainout), (testin, testout)
+    return (ktrainin, ktrainout), (ktestin, ktestout)
 
 def rowtocols(inp):
     res = []
@@ -71,7 +75,8 @@ def joinfolds(folds):
     stacked = np.column_stack(folds)
     return [np.vstack(stacked[x]) for x in range(len(stacked))]
 
-def kfoldstratify(labels, k):
+def kfoldstratify(labels, k, seed = 0):
+    np.random.seed(seed)
     labels = labels.reshape([len(labels)])
     class1 = np.squeeze(np.where(labels==1))
     class0 = np.squeeze(np.where(labels==0))
@@ -109,6 +114,7 @@ def confusionmat(pred, true):
 
 def crossvalidation(inp, labels, model, wdir, epochs=500, k = 5, seed = 0, verbose = 0, kwargs = {}, loss_record = ['loss']):
     results = {'acc':[], 'loss':[], 'cm':[], 'spec':[]}
+    if k == 0: return results
     fold_ind = kfoldstratify(labels[-1], k)
 
     for i in range(k):
@@ -207,7 +213,10 @@ def modeltests(inp, labels, testdata, model, name,
         (inp, labels), testdata = (ktrainin, ktrainout),(ktestin, ktestout)
 
         #(inp, labels), testdata = splitdata(inp, labels, testsplit, seed)
-    
+    elif isinstance(testdata, (list, tuple)) and len(testdata) == 2:
+        train, testdata = testdata
+        inp, labels = train
+
     default_kwargs = {'x':inp, 'y':labels, 'epochs': epochs, 'verbose': verbose, 'validation_data':testdata}
     default_kwargs.update(overall_kwargs)
     default_kwargs['callbacks'] = overall_kwargs['callbacks'](f'{wdir}/logs/final')
