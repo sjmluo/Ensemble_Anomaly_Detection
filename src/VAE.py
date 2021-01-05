@@ -2,6 +2,7 @@ import tensorflow as tf
 from keras import backend as K
 from itertools import product
 from functools import partial
+import gc
 
 class Encoder(tf.keras.layers.Layer):
     def __init__(self, layersizes, latentsize):
@@ -102,7 +103,20 @@ class VAE(tf.keras.Model):
     
     def reset_model(self):
         tf.keras.backend.clear_session()
+        for l in self.inlayers:
+            for i in l:
+                del i
+            del l
+        for l in self.outlayers:
+            for i in l:
+                del i
+            del l
 
+        del self.encoder
+        del self.decoder
+        tf.keras.backend.clear_session()
+        gc.collect()
+        
         self.inlayers = []
         self.outlayers = []
 
