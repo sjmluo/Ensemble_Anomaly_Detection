@@ -75,9 +75,9 @@ def joinfolds(folds):
     stacked = np.column_stack(folds)
     return [np.vstack(stacked[x]) for x in range(len(stacked))]
 
-def kfoldstratify(labels, k, seed = 0):
-    np.random.seed(seed)
-    labels = labels.reshape([len(labels)])
+def kfoldstratify(labels, k, seed = None):
+    if isinstance(seed,int): np.random.seed(seed)
+    labels = np.reshape(np.asarray(labels).astype('int32'), [len(labels)])
     class1 = np.squeeze(np.where(labels==1))
     class0 = np.squeeze(np.where(labels==0))
     np.random.shuffle(class1)
@@ -86,7 +86,7 @@ def kfoldstratify(labels, k, seed = 0):
                                 reversed(np.array_split(class1,k)))]
     [np.random.shuffle(x) for x in w]
 
-    return np.array(w)
+    return np.array(w, dtype='object')
 
 def reset_model(model):
     for ix, layer in enumerate(model.layers):
