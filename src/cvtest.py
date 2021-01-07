@@ -40,6 +40,9 @@ class CompileHelper:
     def __call__(self, model):
         optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
         model.compile(optimizer, loss=self.losses, loss_weights=self.loss_weights)
+    
+    def __eq__(self, other):
+        return self.losses == other.losses and self.loss_weights == other.loss_weights
 
 class WCEHelper:
     def __init__(self, weights, conf = 0.5):
@@ -48,6 +51,9 @@ class WCEHelper:
     
     def __call__(self, y_true, y_pred):
         return weightedce(y_true, y_pred, self.weights, self.conf)
+    
+    def __eq__(self, other):
+        return tf.math.reduce_all(self.weights == other.weights) and self.conf == other.conf
 
 
 def test1():
@@ -67,8 +73,8 @@ def test1():
     'outputsize':[[4,4,4,4,4,4,8,16,16,16,16,4], [1,1,1,1,1,1,2,4,4,4,4,1]],
     'finalactivation':[None,None,None,None,None,None,None,None,None,None,None,'sigmoid']}
     cvh = CVHelper(vaeArgs, data, comp, '01', cvRuns = 2,
-                description = f'losses: {losses}\nloss_weights: {loss_weights}\nCEweights: {CEweights}', 
-                epochs=10, 
+                description = f'losses: {[l.__name__ for l in losses]}\nloss_weights: {loss_weights}\nCEweights: {CEweights}', 
+                epochs=1, 
                 k = 10, 
                 seed = 0, 
                 verbose = 2, 
