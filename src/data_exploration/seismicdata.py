@@ -60,13 +60,13 @@ def data_preprocessing(train):
     train.loc[:,'energy'] = np.log(train['energy'] + 1)
     train.loc[:,'maxenergy'] = np.log(train['maxenergy'] + 1)
 
-    train.loc[:,'nbumps49'] = (train.loc[:,['nbumps4','nbumps5','nbumps6','nbumps7','nbumps89']].sum(1))
+    train['nbumps49'] = train.loc[:,['nbumps4','nbumps5','nbumps6','nbumps7','nbumps89']].sum(1)
 
     def vectorisenb(row):
         return np.array(row.loc[['nbumps','nbumps2','nbumps3','nbumps49']]).astype('float32')
-    train.loc[:,'nbumpsv'] = train.apply(vectorisenb,1)
+    train['nbumpsv'] = train.apply(vectorisenb,1)
 
-    train.loc[:,'class'] = train['class'].astype(int)
+    train['class'] = train['class'].astype(int)
 
     train = train.loc[:,['gdenergy', 'gdpuls', 'genergy', 'energy', 'maxenergy', 'gpuls', 'shift', 'seismic', 'seismoacoustic', 'ghazard', 'nbumpsv', 'class']]
 
