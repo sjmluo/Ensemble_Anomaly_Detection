@@ -26,30 +26,6 @@ def lossfunction(labels, predictions):
 
 def callback(wdir):
     plateau = tf.keras.callbacks.ReduceLROnPlateau(verbose=1)
-    logbar = tf.keras.callbacks.ProgbarLogger(stateful_metrics=['output_1_loss',
-        'output_2_loss',
-        'output_3_loss',
-        'output_4_loss',
-        'output_5_loss',
-        'output_6_loss',
-        'output_7_loss',
-        'output_8_loss',
-        'output_9_loss',
-        'output_10_loss',
-        'output_11_loss',
-        'val_output_1_loss',
-        'val_output_2_loss',
-        'val_output_3_loss',
-        'val_output_4_loss',
-        'val_output_5_loss',
-        'val_output_6_loss',
-        'val_output_7_loss',
-        'val_output_8_loss',
-        'val_output_9_loss',
-        'val_output_10_loss',
-        'val_output_11_loss','loss'])
-    logbar.epochs = 25
-    #logdir = "logs/" + datetime.now().strftime("%Y%m%d-%H%M%S")
     tb_callback = tf.keras.callbacks.TensorBoard(log_dir=wdir)
 
     earlystop = tf.keras.callbacks.EarlyStopping(
@@ -57,8 +33,8 @@ def callback(wdir):
     mode='auto', baseline=None, restore_best_weights=True
     )
 
-    return [plateau,logbar, tb_callback, earlystop]
-
+    return [plateau, tb_callback, earlystop]
+    
 def compile_model(model):
     optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
     losses = [tf.losses.mean_absolute_error]*11
