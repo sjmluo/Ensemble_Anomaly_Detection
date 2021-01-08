@@ -33,7 +33,36 @@ class Decoder(tf.keras.layers.Layer):
         
         return x
 
-class VAE(tf.keras.Model):
+class CustomModel(tf.keras.Model):
+    def __init__(self):
+        super(CustomModel, self).__init__()
+    
+    def info(self) -> dict:
+        """
+        Provides descriptive information on model (structure, loss, etc.)
+        """
+        pass
+
+    def reset_model(self) -> None:
+        """
+        Resets model such that all weights and reset
+        """
+        pass
+
+    def addcompile(self, fn) -> None:
+        """
+        Adds a compile function that compiles model each time it is reset or when a save is loaded. Model function should have signature compile_fn(model)
+        """
+        self.compile_fn = fn
+
+    def _compile(self):
+        """
+        Compiles model
+        """
+        self.compile_fn(self)
+
+
+class VAE(CustomModel):
 
     def __init__(self, inputsize, inlayersize, latentsize, outlayersize = None, outputsize = None, finalactivation = ['relu']):
         """
@@ -139,6 +168,13 @@ class VAE(tf.keras.Model):
     def _compile(self):
         self.compile_fn(self)
 
+    def info(self):
+        VAEargs = ['inputsize', 'inlayersize', 'latentsize', 'outlayersize', 'outputsize', 'finalactivation']
+        res = {}
+        for arg in VAEargs:
+            res[arg] = self.__dict__[arg]
+        return res
+
 def testloss(labels, predictions):
     e1 = tf.keras.losses.mean_squared_error(labels[0], predictions[0])
     e2 = tf.keras.losses.mean_squared_error(labels[1], predictions[1])
@@ -182,3 +218,4 @@ if __name__ == "__main__":
     """ mp = multiprocessing.Process(target = testp3, args = [X,Y,Xtest,Ytest])
     mp.start()
     mp.join() """
+
