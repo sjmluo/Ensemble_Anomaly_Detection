@@ -1,0 +1,43 @@
+inputsize: [ListWrapper([ListWrapper([4, 4]), ListWrapper([8, 8])]), ListWrapper([ListWrapper([4, 4]), ListWrapper([8, 8])])]
+inlayersize: [ListWrapper([512, 512, 1024]), ListWrapper([512, 512, 1024])]
+latentsize: [128, 128]
+outlayersize: [ListWrapper([1024, 512, 512]), ListWrapper([1024, 512, 512])]
+outputsize: [ListWrapper([ListWrapper([4, 4, 4]), ListWrapper([1, 1, 1])]), ListWrapper([ListWrapper([4, 4, 4]), ListWrapper([1, 1, 1])])]
+finalactivation: [ListWrapper([None, None, 'sigmoid']), ListWrapper([None, None, 'sigmoid'])]
+Model has 2 inputs, class 0 is where the second input is drawn from a normal distribution with mean of the first input, class 1 is where it isnt                 
+losses: ['mean_absolute_error', 'mean_absolute_error', 'weighted_ce']
+loss_weights: [1, 1, 1]
+CEweights: [[1, 1], [1, 1]]
+Average accuracy: 0.9292307692307692
+Balanced acc: 0.5583333333333333
+Average specificity: 0.9966666666666667
+Average sensitivity (Detection rate): 0.12000000000000001
+Average loss: [[      nan 1.6375692]]
+Average False Alarm: 0.88
+Average F1: [0.21428571 6.        ]
+Average cm:
+||True 0| True 1|
+|-|-|-|
+|Predicted 0|11.959999999999999|0.8799999999999999
+|Predicted 1|0.039999999999999994|0.12
+
+|Acc|Spec|Loss|
+0.9292307692307692|0.9966666666666667|[[      nan 1.6375692]]
+CV took 68.39470605379756 seconds
+Pure training took 59.78125617120241
+Test result on unseen data:
+Average accuracy: 0.512
+Balanced acc: 0.512
+Average specificity: 0.9992
+Average sensitivity (Detection rate): 0.024799999999999992
+Average loss: nan
+Average False Alarm: 0.9752
+Average F1: [4.83996877e-02 6.20000000e+01]
+Average cm:
+||True 0| True 1|
+|-|-|-|
+|Predicted 0|99.91999999999999|97.52000000000001
+|Predicted 1|0.07999999999999999|2.4799999999999995
+
+|Acc|Spec|Loss|
+0.512|0.9992|nan
