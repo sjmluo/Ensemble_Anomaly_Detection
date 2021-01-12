@@ -223,6 +223,15 @@ class CVHelper:
             for key in results:
                 lst = [self.results[run][key] for run in self.results]
                 results[key] = np.mean(lst, 0)
+            
+            if self.postfold is not None:
+                _results = {}
+                for key in self.results['run0']['post']:
+                    lst = [self.results[run]['post'][key] for run in self.results]
+                    _results[key] = np.mean(lst, 0)
+                results['post'] = _results
+                print(_results)
+                
             self.results['overall'] = results
             self.writeResults(file, results)
         self.save.commit(self.__dict__)
@@ -233,7 +242,7 @@ class CVHelper:
             file.write(f'{self.description}\n')
         self._writeResults(file, results)
         file.write('\n'.join([f"CV took {results['totalTime']} seconds",
-            f"Pure training took {results['trainingTime']}"]))
+            f"Pure training took {results['trainingTime']}\n"]))
         if self.postresult is not None:
             self.postresult(file, results['post'])
 
@@ -241,7 +250,6 @@ class CVHelper:
         default_kwargs = {'x':trainin, 'y':trainout, 'epochs': self.epochs, 'verbose': self.verbose, 'validation_data':(testin, testout)}
         #default_kwargs.update(self.kwargs['fit_kwargs'])
         default_kwargs['callbacks'] = self.kwargs['callbacks'](f'{self.wdir}/run{self.progress[0]}/logs/cv{self.progress[1]}')
-        
         start = time.perf_counter()
         hist = self.model.fit(**default_kwargs).history
         self.trainingTime += time.perf_counter() - start
@@ -258,9 +266,9 @@ class CVHelper:
 def writeResults(file, results):
     a = np.mean(results['cm'],axis = 0)
     ave = (a[0][0] + a[1][1])/a.sum()
-    spec = a[1][1]/(a[:,1].sum())
-    loss = np.mean(results['loss'],0)
-    sensi = a[0][0]/a[:,0].sum()
+    spec = a[0][0]/(a[:,0].sum())
+    loss = np.nanmean(results['loss'],0)
+    sensi = a[1][1]/a[:,1].sum()
     file.writelines('\n'.join([
         f"Average accuracy: {ave}", 
         f"Balanced acc: {(sensi+spec)/2}", 
@@ -271,7 +279,7 @@ def writeResults(file, results):
         f"Average F1: {2*a[1,1]/(2*a[1,1]+a[0,1],a[1,0])}", 
         f"Average cm:", 
         f"||True 0| True 1|\n|-|-|-|\n|Predicted 0|{a[0][0]}|{a[0][1]}\n|Predicted 1|{a[1][0]}|{a[1][1]}\n", 
-        f"|Acc|Spec|Loss|\n{ave}|{spec}|{loss}"]))
+        f"|Acc|Spec|Loss|\n{ave}|{spec}|{loss}",'']))
 
 def crunch_predictions(y_pred, y_true, results):
     results['y_pred'] = np.concatenate([results['y_pred'], np.squeeze(y_pred, -1)])
