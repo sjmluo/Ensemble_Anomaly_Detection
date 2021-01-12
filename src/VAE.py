@@ -238,7 +238,6 @@ class SVAE(CustomModel):
 
         for layer in self.fc_layers:
             encout = layer(encout)
-        print(logvar, means)
         output.append(tf.concat([logvar, means],-1))
         output.append(encout)
 
