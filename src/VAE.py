@@ -94,7 +94,7 @@ class VAE(CustomModel):
             self.inlayers.append([tf.keras.layers.Dense(size, activation = 'relu') for size in inputlayer])
 
         for outputlayer in outputsize[:-1]:
-            self.outlayers.append([tf.keras.layers.Dense(size) for size in outputlayer])
+            self.outlayers.append([tf.keras.layers.Dense(size, activation = 'relu') for size in outputlayer])
         
         if len(outputsize) > 0:
             self.outlayers.append([tf.keras.layers.Dense(size, activation = act) for size, act in zip(outputsize[-1], finalactivation)])
@@ -181,6 +181,91 @@ def testloss(labels, predictions):
     return tf.math.reduce_mean([e1,e2])
 
 
+class SVAE(CustomModel):
+    def __init__(self, **kwargs):
+        super(SVAE, self).__init__()
+
+        allowed_kwargs = {'inputsize', 'inlayersize', 'latentsize', 'outlayersize', 'outputsize', 'fc_size', 'finalactivation'}
+
+        for k in kwargs:
+            if k not in allowed_kwargs:
+                raise ValueError(f'{k} is not a valid kwarg')
+        
+        self.__dict__.update(kwargs)
+        
+        if 'outlayersize' not in kwargs:
+            self.outlayersize = list(reversed(self.inlayersize))
+
+        if 'outputsize' not in kwargs:
+            self.outputsize = list(reversed(self.inputsize))
+
+        self.inlayers = []
+        self.outlayers = []
+
+        for inputlayer in self.inputsize:
+            self.inlayers.append([tf.keras.layers.Dense(size, activation = 'relu') for size in inputlayer])
+
+        for outputlayer in self.outputsize[:-1]:
+            self.outlayers.append([tf.keras.layers.Dense(size, activation = 'relu') for size in outputlayer])
+
+        if len(self.outputsize) > 0:
+            self.outlayers.append([tf.keras.layers.Dense(size, activation = act) for size, act in zip(self.outputsize[-1], self.finalactivation)])
+
+        self.encoder = Encoder(self.inlayersize, self.latentsize)
+        self.fc_layers = [tf.keras.layers.Dense(s, activation = 'relu') for s in self.fc_size[:-1]]
+        self.fc_layers.append(tf.keras.layers.Dense(self.fc_size[-1], activation = 'sigmoid'))
+        self.decoder = Decoder(self.outlayersize, self.outputsize)
+
+
+    def call(self, inp):
+        for level in self.inlayers:
+            inp = [layer(i) for layer, i in zip(level, inp)]
+        
+        inp = tf.concat(inp, -1)
+        (means, logvar) = self.encoder(inp)
+        encout = tf.concat([means, logvar], -1)
+
+        var = tf.exp(0.5*logvar)
+        
+        norm = tf.random.normal([1], means, var)
+
+        output = self.decoder(norm)
+
+        if len(self.outlayers) > 0:
+            output = [layer(output) for layer in self.outlayers[0]]
+            for level in self.outlayers[1:]: # TODO: Get rid of for loops
+                output = [layer(i) for layer, i in zip(level, output)]
+
+        for layer in self.fc_layers:
+            encout = layer(encout)
+        print(logvar, means)
+        output.append(tf.concat([logvar, means],-1))
+        output.append(encout)
+
+        return output
+        
+    def reset_model(self):
+        tf.keras.backend.clear_session()
+        self.encoder = Encoder(self.inlayersize, self.latentsize)
+        self.fc_layers = [tf.keras.layers.Dense(s, activation = 'relu') for s in self.fc_size[:-1]]
+        self.fc_layers.append(tf.keras.layers.Dense(self.fc_size[-1], activation = 'sigmoid'))
+        self.decoder = Decoder(self.outlayersize, self.outputsize)
+
+        if self.compile_fn is not None: self._compile()
+
+    def addcompile(self, fn):
+        self.compile_fn = fn
+
+    def _compile(self):
+        self.compile_fn(self)
+
+    def info(self):
+        VAEargs = ['inputsize', 'inlayersize', 'latentsize', 'outlayersize', 'outputsize', 'finalactivation']
+        res = {}
+        for arg in VAEargs:
+            res[arg] = self.__dict__[arg]
+        return res
+        
 
 if __name__ == "__main__":
     import numpy as np
