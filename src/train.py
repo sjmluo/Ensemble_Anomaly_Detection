@@ -1,7 +1,6 @@
 import imblearn
 import tensorflow as tf
 import os
-from src.VAE import VAE
 import numpy as np
 import pandas as pd
 
@@ -103,9 +102,9 @@ def reset_model(model):
                 weight_initializer(shape=old_weights.shape),
                 bias_initializer(shape=len(old_biases))])
 
-def confusionmat(pred, true):
+def confusionmat(pred, true, conf = 0.5):
     pred = np.squeeze(pred,1)
-    pred = np.where(np.array(pred) >= 0.5, 1, 0)
+    pred = np.where(np.array(pred) >= conf, 1, 0)
     true = np.squeeze(true).astype(int)
     cm = np.zeros([2,2])
     np.add.at(cm, (pred, true.astype(int)), 1)
