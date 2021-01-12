@@ -43,7 +43,7 @@ class CompileHelper:
     
     def __call__(self, model):
         optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
-        model.compile(optimizer, loss=self.losses, loss_weights=self.loss_weights, run_eagerly = True)
+        model.compile(optimizer, loss=self.losses, loss_weights=self.loss_weights)
     
     def __eq__(self, other):
         return self.losses == other.losses and self.loss_weights == other.loss_weights
@@ -54,8 +54,6 @@ class WCEHelper:
         self.conf = conf
     
     def __call__(self, y_true, y_pred):
-        print(y_pred)
-        exit()
         return weightedce(y_true, y_pred, self.weights, self.conf)
     
     def __eq__(self, other):
@@ -273,6 +271,17 @@ class KLD:
         means = y_pred[:,self.latent_size:]
         return -0.5*tf.math.reduce_mean(1 + logvar - tf.square(means) - tf.exp(logvar))
 
+def callback4(wdir):
+    plateau = tf.keras.callbacks.ReduceLROnPlateau(verbose=1)
+    tb_callback = tf.keras.callbacks.TensorBoard(log_dir=wdir)
+
+    earlystop = tf.keras.callbacks.EarlyStopping(
+    monitor='val_output_4_loss', min_delta=10e-7, patience=18, verbose=2,
+    mode='auto', baseline=None, restore_best_weights=True
+    )
+
+    return [plateau, tb_callback, earlystop]
+
 def test4():
     latent_size = 2
     CEweights = [[1,10],[1,1]]
@@ -282,27 +291,28 @@ def test4():
     losses.append(kld)
     losses.append(ce)
     ce.__name__ = 'weighted_ce'
-    loss_weights = [1,1,0,1]
+    loss_weights = [1,1,1,10]
     comp = CompileHelper(losses, loss_weights)
     
 
-    kwargs = {'callbacks': callback2, 'model': SVAE, 
+    kwargs = {'callbacks': callback4, 'model': SVAE, 
     'postresult': testresults2, 'postfold': testpost2}
     vaeArgs = {'inputsize':[[4,4],[8,8]],
-    'inlayersize': [64, 32, 16],
+    'inlayersize': [16, 32, 64],
     'latentsize': latent_size, 
     'outputsize':[[4,4], [1,1]],
     'finalactivation':[None,None,'sigmoid'],
     'fc_size': [64,32,1]}
     {'encoder_input_size', 'fc_size', 'decoder_output_size', 'decoder_activation', 'latent_size'}
 
-    cvh = CVHelper(vaeArgs, testdata2, comp, '06', cvRuns = 5,
-                description = f'Model has 2 inputs, class 0 is where the second input is drawn from a normal distribution with mean of the first input, class 1 is where it isnt. Double training data \
-                \nlosses: {[l.__name__ for l in losses]}\nloss_weights: {loss_weights}\nCEweights: {CEweights}', 
+    cvh = CVHelper(vaeArgs, testdata2, comp, '08', cvRuns = 5,
+                description = f'Model has 2 inputs, class 0 is where the second input is drawn from a normal distribution\
+with mean of the first input, class 1 is where it isnt. Proper implementation of SVAE \
+\nlosses: {[l.__name__ for l in losses]}\nloss_weights: {loss_weights}\nCEweights: {CEweights}', 
                 epochs=500, 
                 k = 10, 
                 seed = 0, 
-                verbose = 1, 
+                verbose = 2, 
                 testsplit = (1, 20), 
                 wdir = 'src/reports/test3',
                 train_preprocessing = train_preprocessing4,
