@@ -3,6 +3,8 @@ from keras import backend as K
 from itertools import product
 from functools import partial
 import gc
+import tensorflow_probability as tfp
+import numpy as np
 
 class Encoder(tf.keras.layers.Layer):
     def __init__(self, layersizes, latentsize):
@@ -259,12 +261,147 @@ class SVAE(CustomModel):
         self.compile_fn(self)
 
     def info(self):
-        VAEargs = ['inputsize', 'inlayersize', 'latentsize', 'outlayersize', 'outputsize', 'finalactivation']
+        VAEargs = ['inputsize', 'inlayersize', 'latentsize', 'outlayersize', 'outputsize', 'fc_size']
         res = {}
         for arg in VAEargs:
             res[arg] = self.__dict__[arg]
         return res
         
+class VAErcp(CustomModel):
+
+    def __init__(self, inputsize, inlayersize, latentsize, outlayersize = None, outputsize = None, finalactivation = ['relu']):
+        super(VAErcp, self).__init__()
+
+
+        if outlayersize == None:
+            outlayersize = list(reversed(inlayersize))
+
+        if outputsize == None:
+            outputsize = list(reversed(inputsize))
+
+
+        self.inlayers = []
+        self.outlayers = []
+        outputsize[-1].insert(0, latentsize)
+        outputsize[-1].insert(1, latentsize)
+
+        for inputlayer in inputsize:
+            self.inlayers.append([tf.keras.layers.Dense(size, activation = 'relu') for size in inputlayer])
+
+        for outputlayer in outputsize[:-1]:
+            self.outlayers.append([tf.keras.layers.Dense(size, activation = 'relu') for size in outputlayer])
+        
+        if len(outputsize) > 0:
+            self.outlayers.append([tf.keras.layers.Dense(size) for size in outputsize[-1]])
+
+        self.encoder = Encoder(inlayersize, latentsize)
+        self.decoder = Decoder(outlayersize, outputsize)
+
+        self.inputsize = inputsize
+        self.inputsize = inputsize
+        self.inlayersize = inlayersize
+        self.latentsize = latentsize
+        self.outlayersize = outlayersize
+        self.outputsize = outputsize
+        self.compile_fn = None
+
+    def reset_model(self):
+        tf.keras.backend.clear_session()
+        for l in self.inlayers:
+            for i in l:
+                del i
+            del l
+        for l in self.outlayers:
+            for i in l:
+                del i
+            del l
+
+        del self.encoder
+        del self.decoder
+        tf.keras.backend.clear_session()
+        gc.collect()
+        
+        self.inlayers = []
+        self.outlayers = []
+
+        for inputlayer in self.inputsize:
+            self.inlayers.append([tf.keras.layers.Dense(size, activation = 'relu') for size in inputlayer])
+
+        for outputlayer in self.outputsize[:-1]:
+            self.outlayers.append([tf.keras.layers.Dense(size, activation = 'relu') for size in outputlayer])
+        
+        if len(self.outputsize) > 0:
+            self.outlayers.append([tf.keras.layers.Dense(size) for size in self.outputsize[-1]])
+
+        self.encoder = Encoder(self.inlayersize, self.latentsize)
+        self.decoder = Decoder(self.outlayersize, self.outputsize)
+        if self.compile_fn is not None: self._compile()
+
+    def call(self, inp):
+
+        for level in self.inlayers:
+            inp = [layer(i) for layer, i in zip(level, inp)]
+            
+        inp = tf.concat(inp, -1)
+        means, logvar = self.encoder(inp)
+        
+        var = tf.exp(0.5*logvar)
+        
+        norm = tf.random.normal([1], means, var)
+
+        output = self.call_decoder(norm)
+        out = [tf.concat([means, logvar, var, output[0], output[1]], axis = 1),  *output[2:], norm]
+        return out
+
+    def call_decoder(self, norm):
+        output = self.decoder(norm)
+
+        if len(self.outlayers) > 0:
+            output = [layer(output) for layer in self.outlayers[0]]
+            for level in self.outlayers[1:]: # TODO: Get rid of for loops
+                output = [layer(i) for layer, i in zip(level, output)]
+        return output
+
+
+    def predict(self, inp, L = 50):
+        """
+        Reconstruction probability
+        """
+        probs = np.zeros([len(inp)])
+        out = self.call(inp)
+        y_pred = out[0]
+        norm = out[3]
+
+        mu_post = y_pred[:, self.latentsize*3:self.latentsize*4]
+        var_post = y_pred[:, self.latentsize*4:self.latentsize*5]
+
+        normal = tfp.distributions.Normal(mu_post, var_post)
+        probs = normal.prob(norm)
+
+        for l in range(1, L):
+            out = self.call_decoder(norm)
+            mu_post = out[0]
+            var_post = out[1]
+
+            normal = tfp.distributions.Normal(mu_post, var_post)
+            probs += normal.prob(norm)
+        probs = np.nanmean(probs, axis = 1)
+        return [np.expand_dims( 1 - (probs/L), -1)]
+
+
+    def info(self):
+        VAEargs = ['inputsize', 'inlayersize', 'latentsize', 'outlayersize', 'outputsize']
+        res = {}
+        for arg in VAEargs:
+            res[arg] = self.__dict__[arg]
+        return res
+
+    def addcompile(self, fn):
+        self.compile_fn = fn
+
+    def _compile(self):
+        self.compile_fn(self)
+
 
 if __name__ == "__main__":
     import numpy as np
