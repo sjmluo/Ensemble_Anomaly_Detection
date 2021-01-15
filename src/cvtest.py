@@ -1,13 +1,13 @@
 from src.CVHelper import CVHelper, crunch_predictions, writeResults
 from src.data_exploration.seismicdata import rawdf, data_preprocessing
-from src.train import weightedce
+from src.train import weightedce, confusionmat
 from functools import partial
 import tensorflow as tf
 import pandas as pd
 import numpy as np
 from itertools import zip_longest
 from imblearn.combine import SMOTETomek
-from src.VAE import CustomModel, VAE, SVAE
+from src.VAE import CustomModel, VAE, SVAE, VAErcp
 
 def callback(wdir):
     plateau = tf.keras.callbacks.ReduceLROnPlateau(verbose=1)
@@ -142,7 +142,7 @@ def test1():
                 
     cvh.crossvalidation()
 
-def testdata2(s1  = 240, s2 = 24, seed = 0):
+def testdata2(s1  = 120, s2 = 12, seed = 0):
     np.random.seed(seed)
 
     center = np.random.uniform(-5, 5, [s1])
@@ -270,6 +270,9 @@ class KLD:
         logvar = y_pred[:,:self.latent_size]
         means = y_pred[:,self.latent_size:]
         return -0.5*tf.math.reduce_mean(1 + logvar - tf.square(means) - tf.exp(logvar))
+    
+    def __eq__(self, other):
+        return self.latent_size == other.latent_size
 
 def callback4(wdir):
     plateau = tf.keras.callbacks.ReduceLROnPlateau(verbose=1)
@@ -283,7 +286,7 @@ def callback4(wdir):
     return [plateau, tb_callback, earlystop]
 
 def test4():
-    latent_size = 2
+    latent_size = 4
     CEweights = [[1,10],[1,1]]
     losses = [tf.losses.mean_absolute_error]*2
     ce = WCEHelper(CEweights)
@@ -298,16 +301,16 @@ def test4():
     kwargs = {'callbacks': callback4, 'model': SVAE, 
     'postresult': testresults2, 'postfold': testpost2}
     vaeArgs = {'inputsize':[[4,4],[8,8]],
-    'inlayersize': [16, 32, 64],
+    'inlayersize': [128, 512, 512],
     'latentsize': latent_size, 
     'outputsize':[[4,4], [1,1]],
     'finalactivation':[None,None,'sigmoid'],
     'fc_size': [64,32,1]}
     {'encoder_input_size', 'fc_size', 'decoder_output_size', 'decoder_activation', 'latent_size'}
 
-    cvh = CVHelper(vaeArgs, testdata2, comp, '08', cvRuns = 5,
+    cvh = CVHelper(vaeArgs, testdata2, comp, '13', cvRuns = 5,
                 description = f'Model has 2 inputs, class 0 is where the second input is drawn from a normal distribution\
-with mean of the first input, class 1 is where it isnt. Proper implementation of SVAE \
+with mean of the first input, class 1 is where it isnt. Proper implementation of SVAE\
 \nlosses: {[l.__name__ for l in losses]}\nloss_weights: {loss_weights}\nCEweights: {CEweights}', 
                 epochs=500, 
                 k = 10, 
@@ -337,12 +340,115 @@ def train_preprocessing4(trainin, trainout):
 def test_preprocessing4(testin, testout):
     return data_preprocessing4(testout)
 
+class customloss5:
+    def __init__(self, latent_size):
+        self.latent_size = latent_size
+    
+    def __call__(self, y_true, y_pred):
+        mu = y_pred[:,:self.latent_size]
+        #logvar = y_pred[self.latent_size:self.latent_size*2]
+        var = y_pred[:,self.latent_size*2:self.latent_size*3]
+        mu_post = y_pred[:,self.latent_size*3:self.latent_size*4]
+        var_post = y_pred[:,self.latent_size*4:self.latent_size*5]
+        return tf.keras.losses.MSE(mu,mu_post) + tf.keras.losses.MSE(var, var_post)
+
+def callback5(wdir):
+    plateau = tf.keras.callbacks.ReduceLROnPlateau(verbose=1)
+    tb_callback = tf.keras.callbacks.TensorBoard(log_dir=wdir)
+
+    earlystop = tf.keras.callbacks.EarlyStopping(
+    monitor='val_loss', min_delta=10e-7, patience=18, verbose=2,
+    mode='auto', baseline=None, restore_best_weights=True
+    )
+
+    return [plateau, tb_callback, earlystop]
+
+def ignore(y_true, y_pred):
+    return 0
+
+def bestalpha(y_true, y_pred):
+    highestalpha = 0
+    highestf1 = 0
+    for alpha in sorted(np.squeeze(y_pred,-1)):
+        cm = confusionmat(y_pred, y_true, alpha)
+        f1 = 2*cm[1,1]/(2*cm[1,1]+cm[0,1]+cm[1,0])
+        if f1 > highestf1:
+            highestalpha = alpha
+            highestf1 = f1
+    return highestalpha, highestf1
+
+def testpost5(model, results):
+    if results == {}:
+        results.update({'acc':[], 'loss':[], 'cm':[], 'spec':[], 'y_pred': [], 'y_true': [], 'loglikelihood': [], 'alpha': []})
+    testin, testout = testdata2(100, 100, seed = 40)
+    testin, testout = test_preprocessing2(testin, testout)
+    
+    pred = model.predict(testin)
+
+    highestalpha, highestf1 = bestalpha(testout[-1], pred[-1])
+    results['alpha'].append(highestalpha)
+
+    crunch_predictions(pred[-1], testout[-1], results, highestalpha)
+
+def test5():
+    latent_size = 4
+    cl5 = customloss5(latent_size)
+    cl5.__name__ = 'cl5'
+    CEweights = [[1,10],[1,1]]
+    losses = [tf.losses.mean_absolute_error]*2
+    losses.insert(0, cl5)
+    losses.append(ignore)
+    loss_weights = [1,1,1,0] #meanvar, point1, point2, norm/epoch
+    comp = CompileHelper(losses, loss_weights)
+    
+
+    kwargs = {'callbacks': callback5, 'model': VAErcp, 
+    'postresult': testresults2, 'postfold': testpost5}
+    vaeArgs = {'inputsize':[[4,4],[8,8]],
+    'inlayersize': [32, 64, 128],
+    'latentsize': latent_size, 
+    'outputsize':[[1,1]],
+    'finalactivation':[None,None,'sigmoid']}
+
+    cvh = CVHelper(vaeArgs, testdata2, comp, '01', cvRuns = 5,
+                description = f'Model has 2 inputs, class 0 is where the second input is drawn from a normal distribution\
+with mean of the first input, class 1 is where it isnt. Proper implementation of SVAE\
+\nlosses: {[l.__name__ for l in losses]}\nloss_weights: {loss_weights}\nCEweights: {CEweights}', 
+                epochs=500, 
+                k = 10, 
+                seed = 0, 
+                verbose = 2, 
+                testsplit = (1, 20), 
+                wdir = 'src/reports/test4',
+                train_preprocessing = train_preprocessing5,
+                test_preprocessing = test_preprocessing5,
+                **kwargs)
+                
+    cvh.crossvalidation()
+
+def data_preprocessing5(trainin):
+    lst = [np.expand_dims(trainin[x].to_numpy(),-1) for x in trainin.columns]
+    lst.insert(0, np.zeros([len(lst[0]),8]))
+    return lst[1:3], lst
+
+def train_preprocessing5(trainin, trainout):
+    preprocessing = SMOTETomek(n_jobs=-1)
+    X,y = preprocessing.fit_resample(trainin, trainout.iloc[:,-1].astype('int32'))
+    X['class'] = y
+
+    return data_preprocessing5(trainout)
+
+
+def test_preprocessing5(testin, testout):
+    return data_preprocessing5(testout)
+
 if __name__ == "__main__":
     #test1()
     #test2()
 
     #test3()
-    test4()
+    #test4()
+    test5()
     """ vaeArgs = {'inputsize':[[4,4],[8,8]],
     'inlayersize': [64, 32, 16],
     'latentsize': 2, 
