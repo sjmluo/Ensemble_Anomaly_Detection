@@ -1,0 +1,43 @@
+inputsize: [[4, 4], [8, 8]]
+inlayersize: [64, 32, 16]
+latentsize: 2
+outlayersize: ListWrapper([16, 32, 64])
+outputsize: [[4, 4], [1, 1]]
+finalactivation: [None, None, 'sigmoid']
+Model has 2 inputs, class 0 is where the second input is drawn from a normal distributionwith mean of the first input, class 1 is where it isnt. Proper implementation of SVAE 
+losses: ['mean_absolute_error', 'mean_absolute_error', 'KLD', 'weighted_ce']
+loss_weights: [1, 1, 1, 10]
+CEweights: [[1, 10], [1, 1]]
+Average accuracy: 0.9869230769230768
+Balanced acc: 0.9333333333333333
+Average specificity: 0.9966666666666667
+Average sensitivity (Detection rate): 0.8700000000000001
+Average loss: [4.22506555]
+Average False Alarm: 0.13
+Average F1: 0.9109947643979058
+Average cm:
+||True 0| True 1|
+|-|-|-|
+|Predicted 0|23.919999999999998|0.26
+|Predicted 1|0.07999999999999999|1.7400000000000002
+
+|Acc|Spec|Loss|
+0.9869230769230768|0.9966666666666667|[4.22506555]
+CV took 224.58493256559925 seconds
+Pure training took 221.15519169860127
+Test result on unseen data:
+Average accuracy: 0.7722999999999999
+Balanced acc: 0.7723
+Average specificity: 0.9722
+Average sensitivity (Detection rate): 0.5723999999999999
+Average loss: nan
+Average False Alarm: 0.4276
+Average F1: 0.7154105736782902
+Average cm:
+||True 0| True 1|
+|-|-|-|
+|Predicted 0|97.22|42.76
+|Predicted 1|2.7800000000000002|57.239999999999995
+
+|Acc|Spec|Loss|
+0.7722999999999999|0.9722|nan

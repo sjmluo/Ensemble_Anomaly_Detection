@@ -1,0 +1,37 @@
+Model has 2 inputs, class 0 is where the second input is drawn from a normal distributionwith mean of the first input, class 1 is where it isnt. Proper implementation of SVAE
+losses: ['cl5', 'mean_absolute_error', 'mean_absolute_error', 'ignore']
+loss_weights: [1, 1, 1, 0]
+CEweights: [[1, 10], [1, 1]]
+Average accuracy: 0.8538461538461539
+Balanced acc: 0.6
+Average specificity: 0.9
+Average sensitivity (Detection rate): 0.3
+Average loss: [0.1828595]
+Average False Alarm: 0.7
+Average F1: 0.24
+Average cm:
+||True 0| True 1|
+|-|-|-|
+|Predicted 0|10.8|0.7
+|Predicted 1|1.2|0.3
+
+|Acc|Spec|Loss|
+0.8538461538461539|0.9|[0.1828595]
+CV took 126.92915980100042 seconds
+Pure training took 118.905412479
+Test result on unseen data:
+Average accuracy: 0.6204999999999999
+Balanced acc: 0.6205
+Average specificity: 0.336
+Average sensitivity (Detection rate): 0.905
+Average loss: nan
+Average False Alarm: 0.095
+Average F1: 0.7045543012845465
+Average cm:
+||True 0| True 1|
+|-|-|-|
+|Predicted 0|33.6|9.5
+|Predicted 1|66.4|90.5
+
+|Acc|Spec|Loss|
+0.6204999999999999|0.336|nan

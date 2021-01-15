@@ -1,0 +1,37 @@
+Model has 2 inputs, class 0 is where the second input is drawn from a normal distribution with mean of the first input, class 1 is where it isnt. Double training data                 
+losses: ['mean_absolute_error', 'mean_absolute_error', 'weighted_ce']
+loss_weights: [1, 1, 1]
+CEweights: [[1, 1], [1, 1]]
+Average accuracy: 0.9846153846153847
+Balanced acc: 0.9
+Average specificity: 1.0
+Average sensitivity (Detection rate): 0.8
+Average loss: [0.99507862]
+Average False Alarm: 0.2
+Average F1: [0.88888889        inf]
+Average cm:
+||True 0| True 1|
+|-|-|-|
+|Predicted 0|24.0|0.4
+|Predicted 1|0.0|1.6
+
+|Acc|Spec|Loss|
+0.9846153846153847|1.0|[0.99507862]
+CV took 83.06785829800174 seconds
+Pure training took 78.80139943000086
+Test result on unseen data:
+Average accuracy: 0.735
+Balanced acc: 0.735
+Average specificity: 0.988
+Average sensitivity (Detection rate): 0.48200000000000004
+Average loss: nan
+Average False Alarm: 0.518
+Average F1: [ 0.65047233 80.33333333]
+Average cm:
+||True 0| True 1|
+|-|-|-|
+|Predicted 0|98.8|51.8
+|Predicted 1|1.2|48.2
+
+|Acc|Spec|Loss|
+0.735|0.988|nan

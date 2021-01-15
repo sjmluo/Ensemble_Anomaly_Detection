@@ -1,0 +1,43 @@
+inputsize: [[4, 4], [8, 8]]
+inlayersize: [64, 32, 16]
+latentsize: 2
+outlayersize: ListWrapper([16, 32, 64])
+outputsize: [[4, 4], [1, 1]]
+finalactivation: [None, None, 'sigmoid']
+Model has 2 inputs, class 0 is where the second input is drawn from a normal distribution with mean of the first input, class 1 is where it isnt. Double training data                 
+losses: ['mean_absolute_error', 'mean_absolute_error', 'weighted_ce']
+loss_weights: [1, 1, 1]
+CEweights: [[1, 1], [1, 1]]
+Average accuracy: 0.9815384615384615
+Balanced acc: 0.88
+Average specificity: 1.0
+Average sensitivity (Detection rate): 0.76
+Average loss: [0.8794781]
+Average False Alarm: 0.24
+Average F1: 0.8636363636363636
+Average cm:
+||True 0| True 1|
+|-|-|-|
+|Predicted 0|24.0|0.48
+|Predicted 1|0.0|1.52
+
+|Acc|Spec|Loss|
+0.9815384615384615|1.0|[0.8794781]
+CV took 88.80746295900008 seconds
+Pure training took 84.53971584039972
+Test result on unseen data:
+Average accuracy: 0.7214999999999999
+Balanced acc: 0.7215
+Average specificity: 0.992
+Average sensitivity (Detection rate): 0.451
+Average loss: nan
+Average False Alarm: 0.5489999999999999
+Average F1: 0.6182316655243317
+Average cm:
+||True 0| True 1|
+|-|-|-|
+|Predicted 0|99.20000000000002|54.9
+|Predicted 1|0.7999999999999999|45.1
+
+|Acc|Spec|Loss|
+0.7214999999999999|0.992|nan
