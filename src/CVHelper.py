@@ -86,6 +86,7 @@ class CVHelper:
         self.name = name
         self.progress = [0,0] #CV, k
         self.results = {}
+        self.model = None
 
         try:
             os.mkdir(wdir)
@@ -126,20 +127,19 @@ class CVHelper:
         if incattr['data'] != self.data:
             print('Data is different')
             return False
-        if incattr['compile_func'] != self.compile_func:
+        if self.compile_func != incattr['compile_func']:
             print(f'Compile function is different {incattr["compile_func"]}, {self.compile_func}')
-            print(f'Compile function is different {incattr["compile_func"].__code__.co_code}, {self.compile_func.__code__.co_code}')
             return False
         return True
 
     def resetData(self):
+        print('called reset data')
         if not callable(self.data):
             _data = self.data
         else:
             _data = self.data()
 
         (inp, labels) = _data
-        
         self.inp = inp
         self.labels = labels
         self.createModel()
@@ -155,9 +155,12 @@ class CVHelper:
         self.resetData()
     
     def createModel(self):
-        self.model = self.model_class(**self.modelArgs)
-        self.model.addcompile(self.compile_func)
-        self.model._compile()
+        if self.model == None:
+            self.model = self.model_class(**self.modelArgs)
+            self.model.addcompile(self.compile_func)
+            self.model._compile()
+        else:
+            self.model.reset_model()
     
     def crossvalidation(self):
         for i in range(self.progress[0], self.cvRuns): #Every i indicates a new run
@@ -183,6 +186,7 @@ class CVHelper:
             results['totalTime'] += time.perf_counter() - start
 
             for j in range(self.progress[1], self.k):
+                print(self.progress)
                 start = time.perf_counter()
                 self.model.reset_model()
                 self.model.reset_states()
@@ -248,7 +252,6 @@ class CVHelper:
 
     def fold(self, trainin, trainout, testin, testout, results):
         default_kwargs = {'x':trainin, 'y':trainout, 'epochs': self.epochs, 'verbose': self.verbose, 'validation_data':(testin, testout)}
-        #default_kwargs.update(self.kwargs['fit_kwargs'])
         default_kwargs['callbacks'] = self.kwargs['callbacks'](f'{self.wdir}/run{self.progress[0]}/logs/cv{self.progress[1]}')
         start = time.perf_counter()
         hist = self.model.fit(**default_kwargs).history
@@ -276,15 +279,15 @@ def writeResults(file, results):
         f"Average sensitivity (Detection rate): {sensi}",
         f"Average loss: {loss}", 
         f"Average False Alarm: {a[0,1]/a[:,1].sum()}", 
-        f"Average F1: {2*a[1,1]/(2*a[1,1]+a[0,1],a[1,0])}", 
+        f"Average F1: {2*a[1,1]/(2*a[1,1]+a[0,1]+a[1,0])}", 
         f"Average cm:", 
         f"||True 0| True 1|\n|-|-|-|\n|Predicted 0|{a[0][0]}|{a[0][1]}\n|Predicted 1|{a[1][0]}|{a[1][1]}\n", 
         f"|Acc|Spec|Loss|\n{ave}|{spec}|{loss}",'']))
 
-def crunch_predictions(y_pred, y_true, results):
+def crunch_predictions(y_pred, y_true, results, conf = 0.5):
     results['y_pred'] = np.concatenate([results['y_pred'], np.squeeze(y_pred, -1)])
     results['y_true'] = np.concatenate([results['y_true'], np.squeeze(y_true, -1)])
-    cm = confusionmat(y_pred, y_true)
+    cm = confusionmat(y_pred, y_true, conf)
     results['acc'].append((cm[0][0] + cm[1][1])/cm.sum())
     results['spec'].append(cm[1][1]/(cm[:,1].sum()))
     results['cm'].append(cm)
