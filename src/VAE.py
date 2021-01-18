@@ -402,6 +402,263 @@ class VAErcp(CustomModel):
     def _compile(self):
         self.compile_fn(self)
 
+class VAErcp2(CustomModel):
+
+    def __init__(self, inputsize, inlayersize, latentsize, outlayersize = None, outputsize = None, finalactivation = ['relu']):
+        super(VAErcp2, self).__init__()
+
+
+        if outlayersize == None:
+            outlayersize = list(reversed(inlayersize))
+
+        if outputsize == None:
+            outputsize = list(reversed(inputsize))
+
+
+        self.inlayers = []
+        self.outlayers = []
+
+        for inputlayer in inputsize:
+            self.inlayers.append([tf.keras.layers.Dense(size, activation = 'relu') for size in inputlayer])
+
+        for outputlayer in outputsize[:-1]:
+            self.outlayers.append([tf.keras.layers.Dense(size, activation = 'relu') for size in outputlayer])
+        
+        if len(outputsize) > 0:
+            self.outlayers.append([tf.keras.layers.Dense(size) for size in outputsize[-1]])
+
+        self.encoder = Encoder(inlayersize, latentsize)
+        self.decoder = Decoder(outlayersize, outputsize)
+
+        self.inputsize = inputsize
+        self.inputsize = inputsize
+        self.inlayersize = inlayersize
+        self.latentsize = latentsize
+        self.outlayersize = outlayersize
+        self.outputsize = outputsize
+        self.compile_fn = None
+
+    def reset_model(self):
+        tf.keras.backend.clear_session()
+        for l in self.inlayers:
+            for i in l:
+                del i
+            del l
+        for l in self.outlayers:
+            for i in l:
+                del i
+            del l
+
+        del self.encoder
+        del self.decoder
+        tf.keras.backend.clear_session()
+        gc.collect()
+        
+        self.inlayers = []
+        self.outlayers = []
+
+        for inputlayer in self.inputsize:
+            self.inlayers.append([tf.keras.layers.Dense(size, activation = 'relu') for size in inputlayer])
+
+        for outputlayer in self.outputsize[:-1]:
+            self.outlayers.append([tf.keras.layers.Dense(size, activation = 'relu') for size in outputlayer])
+        
+        if len(self.outputsize) > 0:
+            self.outlayers.append([tf.keras.layers.Dense(size) for size in self.outputsize[-1]])
+
+        self.encoder = Encoder(self.inlayersize, self.latentsize)
+        self.decoder = Decoder(self.outlayersize, self.outputsize)
+        if self.compile_fn is not None: self._compile()
+
+    def callEncZ(self, inp):
+        for level in self.inlayers:
+            inp = [layer(i) for layer, i in zip(level, inp)]
+            
+        inp = tf.concat(inp, -1)
+        means, logvar = self.encoder(inp)
+        
+        var = tf.exp(0.5*logvar)
+        
+        norm = tf.random.normal([1], means, var)
+
+        return means, logvar, var, norm
+
+
+    def call(self, inp):
+        #meanvar, point1, point2, norm/epoch
+        means, logvar, var, norm = self.callEncZ(inp)
+
+        output = self.decoder(norm)
+
+        if len(self.outlayers) > 0:
+            output = [layer(output) for layer in self.outlayers[0]]
+            for level in self.outlayers[1:]: # TODO: Get rid of for loops
+                output = [layer(i) for layer, i in zip(level, output)]
+        outmean, outlogvar, outvar, outnorm = self.callEncZ(output)
+        
+
+        out = [tf.concat([means, logvar, var, outmean, outvar], axis = 1), *output, norm]
+
+        return out
+
+    def predict(self, inp, L = 50):
+        """
+        Reconstruction probability
+        """
+        probs = np.zeros([len(inp)])
+        out = self.call(inp)
+        y_pred = out[0]
+        norm = out[3]
+
+        mu_post = y_pred[:, self.latentsize*3:self.latentsize*4]
+        var_post = y_pred[:, self.latentsize*4:self.latentsize*5]
+
+        normal = tfp.distributions.Normal(mu_post, var_post)
+        probs = normal.prob(norm)
+
+        for l in range(1, L):
+            post = self.callEncZ(out[1:3])
+            mu_post = post[0]
+            var_post = post[1]
+
+            normal = tfp.distributions.Normal(mu_post, var_post)
+            probs += normal.prob(norm)
+        probs = np.nanmean(probs, axis = 1)
+        return [np.expand_dims( 1 - (probs/L), -1)]
+
+
+    def info(self):
+        VAEargs = ['inputsize', 'inlayersize', 'latentsize', 'outlayersize', 'outputsize']
+        res = {}
+        for arg in VAEargs:
+            res[arg] = self.__dict__[arg]
+        return res
+
+    def addcompile(self, fn):
+        self.compile_fn = fn
+
+    def _compile(self):
+        self.compile_fn(self)
+
+
+class VAErcp3(CustomModel):
+
+    def __init__(self, inputsize, inlayersize, latentsize, outlayersize = None, outputsize = None, finalactivation = ['relu']):
+        """
+        Parameters
+        ----------
+        inputsize : list
+            The sizes of the layers for each input before they enter the encoder/decoder. Can be left empty
+        inlayersize : list
+            The sizes of each layer of the encoder
+        latentsize : int
+            The size of the latent layer
+        outlayersize : list
+            The sizes of each layer of the decoder
+        outputsize : list
+            Size of layers of each output, determines final size of model output. Can be left empty
+        """
+        super(VAErcp3, self).__init__()
+        
+        if outlayersize == None:
+            outlayersize = list(reversed(inlayersize))
+
+        if outputsize == None:
+            outputsize = list(reversed(inputsize))
+
+        self.inlayers = []
+        self.outlayers = []
+
+        for inputlayer in inputsize:
+            self.inlayers.append([tf.keras.layers.Dense(size, activation = 'relu') for size in inputlayer])
+
+        for outputlayer in outputsize[:-1]:
+            self.outlayers.append([tf.keras.layers.Dense(size, activation = 'relu') for size in outputlayer])
+        
+        if len(outputsize) > 0:
+            self.outlayers.append([tf.keras.layers.Dense(size, activation = act) for size, act in zip(outputsize[-1], finalactivation)])
+
+        self.encoder = Encoder(inlayersize, latentsize)
+        self.decoder = Decoder(outlayersize, outputsize)
+
+        self.inputsize = inputsize
+        self.inputsize = inputsize
+        self.inlayersize = inlayersize
+        self.latentsize = latentsize
+        self.outlayersize = outlayersize
+        self.outputsize = outputsize
+        self.finalactivation = finalactivation
+        self.compile_fn = None
+
+    def predict(self, inp):
+        return [np.mean(np.square(np.asarray(inp) - np.asarray(self.call(inp)[:2])), 0)]
+
+    def call(self, inp):
+        for level in self.inlayers:
+            inp = [layer(i) for layer, i in zip(level, inp)]
+            
+        inp = tf.concat(inp, -1)
+        means, logvar = self.encoder(inp)
+        
+        var = tf.exp(0.5*logvar)
+        
+        norm = tf.random.normal([1], means, var)
+
+        output = self.decoder(norm)
+
+        if len(self.outlayers) > 0:
+            output = [layer(output) for layer in self.outlayers[0]]
+            for level in self.outlayers[1:]: # TODO: Get rid of for loops
+                output = [layer(i) for layer, i in zip(level, output)]
+        output.append(output[-1])
+        return output
+    
+    def reset_model(self):
+        tf.keras.backend.clear_session()
+        for l in self.inlayers:
+            for i in l:
+                del i
+            del l
+        for l in self.outlayers:
+            for i in l:
+                del i
+            del l
+
+        del self.encoder
+        del self.decoder
+        tf.keras.backend.clear_session()
+        gc.collect()
+        
+        self.inlayers = []
+        self.outlayers = []
+
+        for inputlayer in self.inputsize:
+            self.inlayers.append([tf.keras.layers.Dense(size, activation = 'relu') for size in inputlayer])
+
+        for outputlayer in self.outputsize[:-1]:
+            self.outlayers.append([tf.keras.layers.Dense(size) for size in outputlayer])
+        
+        if len(self.outputsize) > 0:
+            self.outlayers.append([tf.keras.layers.Dense(size, activation = act) for size, act in zip(self.outputsize[-1], self.finalactivation)])
+
+        self.encoder = Encoder(self.inlayersize, self.latentsize)
+        self.decoder = Decoder(self.outlayersize, self.outputsize)
+        if self.compile_fn is not None: self._compile()
+
+    def addcompile(self, fn):
+        self.compile_fn = fn
+
+    def _compile(self):
+        self.compile_fn(self)
+
+    def info(self):
+        VAEargs = ['inputsize', 'inlayersize', 'latentsize', 'outlayersize', 'outputsize', 'finalactivation']
+        res = {}
+        for arg in VAEargs:
+            res[arg] = self.__dict__[arg]
+        return res
+
+
 
 if __name__ == "__main__":
     import numpy as np
