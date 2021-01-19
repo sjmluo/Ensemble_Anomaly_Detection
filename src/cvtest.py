@@ -7,7 +7,7 @@ import pandas as pd
 import numpy as np
 from itertools import zip_longest
 from imblearn.combine import SMOTETomek
-from src.VAE import CustomModel, VAE, SVAE, VAErcp, VAErcp2, VAErcp3
+from src.VAE import CustomModel, VAE, SVAE, VAErcp, VAErcp2, VAEdistance
 
 def callback(wdir):
     plateau = tf.keras.callbacks.ReduceLROnPlateau(verbose=1)
@@ -462,7 +462,7 @@ def test6():
     loss_weights = [1,1,0]
     comp = CompileHelper(losses, loss_weights)
 
-    kwargs = {'callbacks': callback5, 'model': VAErcp3, 
+    kwargs = {'callbacks': callback5, 'model': VAEdistance, 
     'postresult': testresults2, 'postfold': testpost6}
     vaeArgs = {'inputsize':[[4,4],[8,8]],
     'inlayersize': [64, 32, 16],
@@ -471,7 +471,7 @@ def test6():
     'finalactivation':[None,None,None]}
     {'encoder_input_size', 'fc_size', 'decoder_output_size', 'decoder_activation', 'latent_size'}
 
-    cvh = CVHelper(vaeArgs, testdata2, comp, '03', cvRuns = 5,
+    cvh = CVHelper(vaeArgs, testdata2, comp, '05', cvRuns = 5,
                 description = f'Model has 2 inputs, class 0 is where the second input is drawn from a normal distribution with mean of the first input, class 1 is where it isnt. using distance as outlier metric\
                 \nlosses: {[l.__name__ for l in losses]}\nloss_weights: {loss_weights}\nCEweights: {CEweights}', 
                 epochs=500, 
@@ -491,9 +491,9 @@ if __name__ == "__main__":
     #test2()
 
     #test3()
-    test4()
+    #test4()
     #test5()
-    #test6()
+    test6()
     """ vaeArgs = {'inputsize':[[4,4],[8,8]],
     'inlayersize': [64, 32, 16],
     'latentsize': 2, 
