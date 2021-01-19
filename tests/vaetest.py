@@ -1,4 +1,4 @@
-from src.train import weightedce
+from src.train import weightedce, splitdata
 import numpy as np
 from src.VAE import VAE
 from src.train import modeltests
@@ -7,6 +7,9 @@ from functools import partial
 import matplotlib
 import matplotlib.pyplot as plt
 
+"""
+Old testcases for testing different hyperparameters for labeled binary classification
+"""
 
 def testdata(n1=100,n2=100,n3=100,n4=10):
     x1 = np.random.multivariate_normal([10,24], [[3,2],[2,3]], n1).astype('float32')
