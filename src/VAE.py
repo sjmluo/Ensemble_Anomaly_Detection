@@ -177,16 +177,37 @@ class VAE(CustomModel):
             res[arg] = self.__dict__[arg]
         return res
 
-def testloss(labels, predictions):
-    e1 = tf.keras.losses.mean_squared_error(labels[0], predictions[0])
-    e2 = tf.keras.losses.mean_squared_error(labels[1], predictions[1])
-    return tf.math.reduce_mean([e1,e2])
-
-
 class SVAE(CustomModel):
+    """
+    A similar implementation of https://arxiv.org/abs/2012.08637
+    https://github.com/tianchenji/Multimodal-SVAE
+    """
     def __init__(self, **kwargs):
+        """
+        Parameters
+        ----------
+        inputsize : list
+            The sizes of the layers for each input before they enter the encoder/decoder. Default [16, 32, 64]
+        inlayersize : list
+            A 2D list specifying the sizes of each layer of the encoder, eg. [[4,4],[8,8]] means 2 inputs that are passed into Dense layer of size 4
+             then uncombined outputs enter next layer of size 8 Default []
+        latentsize : int
+            The size of the latent layer. Default 4
+        outlayersize : list
+            The sizes of each layer of the decoder, post processing after decoder. Default reverse of inlayersize
+        outputsize : list
+            Size of layers of each output, determines final size of model output. Default reverse of inputsize
+        fc_size: list
+            List of int, size of each layer of fully connected layers
+        finalactivation:
+            List of activations to use for the final output layer. Should be same size as last outputlayersize
+        No checking of args are in place#TODO
+        """
         super(SVAE, self).__init__()
-
+        self.inputsize = [16,32,64]
+        self.inlayersize = []
+        self.latentsize = 4
+        self.fc_size = [64, 32, 1]
         allowed_kwargs = {'inputsize', 'inlayersize', 'latentsize', 'outlayersize', 'outputsize', 'fc_size', 'finalactivation'}
 
         for k in kwargs:
@@ -268,8 +289,30 @@ class SVAE(CustomModel):
         return res
         
 class VAErcp(CustomModel):
+    """
+    VAE with reconstruction probability
+    https://www.semanticscholar.org/paper/Variational-Autoencoder-based-Anomaly-Detection-An-Cho/061146b1d7938d7a8dae70e3531a00fceb3c78e8
+    https://arxiv.org/abs/1802.03903
+    https://github.com/NetManAIOps/donut
+    """
 
-    def __init__(self, inputsize, inlayersize, latentsize, outlayersize = None, outputsize = None, finalactivation = ['relu']):
+    def __init__(self, inputsize, inlayersize, latentsize, outlayersize = None, outputsize = None):
+        """
+        Currently only one level of post processing after Decoder is allowed, predicting of mean and variance is added automatically to output
+        Parameters
+        ----------
+        inputsize : list
+            The sizes of the layers for each input before they enter the encoder/decoder. Can be left empty
+        inlayersize : list
+            A 2D list specifying the sizes of each layer of the encoder, eg. [[4,4],[8,8]] means 2 inputs that are passed into Dense layer of size 4
+             then uncombined outputs enter next layer of size 8
+        latentsize : int
+            The size of the latent layer
+        outlayersize : list
+            The sizes of each layer of the decoder
+        outputsize : list
+            Size of layers of each output, determines final size of model output. Can be left empty
+        """
         super(VAErcp, self).__init__()
 
 
@@ -403,8 +446,24 @@ class VAErcp(CustomModel):
         self.compile_fn(self)
 
 class VAErcp2(CustomModel):
-
-    def __init__(self, inputsize, inlayersize, latentsize, outlayersize = None, outputsize = None, finalactivation = ['relu']):
+    """
+    Another implementation using reconstruction probability by passing through output through encoder
+    """
+    def __init__(self, inputsize, inlayersize, latentsize, outlayersize = None, outputsize = None):
+        """
+        Parameters
+        ----------
+        inputsize : list
+            The sizes of the layers for each input before they enter the encoder/decoder. Can be left empty
+        inlayersize : list
+            The sizes of each layer of the encoder
+        latentsize : int
+            The size of the latent layer
+        outlayersize : list
+            The sizes of each layer of the decoder
+        outputsize : list
+            Size of layers of each output, determines final size of model output. Can be left empty
+        """
         super(VAErcp2, self).__init__()
 
 
@@ -541,8 +600,10 @@ class VAErcp2(CustomModel):
         self.compile_fn(self)
 
 
-class VAErcp3(CustomModel):
-
+class VAEdistance(VAE):
+    """
+    Just VAE with special predict function
+    """
     def __init__(self, inputsize, inlayersize, latentsize, outlayersize = None, outputsize = None, finalactivation = ['relu']):
         """
         Parameters
@@ -558,40 +619,10 @@ class VAErcp3(CustomModel):
         outputsize : list
             Size of layers of each output, determines final size of model output. Can be left empty
         """
-        super(VAErcp3, self).__init__()
-        
-        if outlayersize == None:
-            outlayersize = list(reversed(inlayersize))
-
-        if outputsize == None:
-            outputsize = list(reversed(inputsize))
-
-        self.inlayers = []
-        self.outlayers = []
-
-        for inputlayer in inputsize:
-            self.inlayers.append([tf.keras.layers.Dense(size, activation = 'relu') for size in inputlayer])
-
-        for outputlayer in outputsize[:-1]:
-            self.outlayers.append([tf.keras.layers.Dense(size, activation = 'relu') for size in outputlayer])
-        
-        if len(outputsize) > 0:
-            self.outlayers.append([tf.keras.layers.Dense(size, activation = act) for size, act in zip(outputsize[-1], finalactivation)])
-
-        self.encoder = Encoder(inlayersize, latentsize)
-        self.decoder = Decoder(outlayersize, outputsize)
-
-        self.inputsize = inputsize
-        self.inputsize = inputsize
-        self.inlayersize = inlayersize
-        self.latentsize = latentsize
-        self.outlayersize = outlayersize
-        self.outputsize = outputsize
-        self.finalactivation = finalactivation
-        self.compile_fn = None
+        super(VAEdistance, self).__init__(inputsize, inlayersize, latentsize, outlayersize, outputsize, finalactivation)
 
     def predict(self, inp):
-        return [np.mean(np.square(np.asarray(inp) - np.asarray(self.call(inp)[:2])), 0)]
+        return [np.mean(np.square(np.asarray(inp) - np.asarray(self.call(inp)[:-1])), 0)]
 
     def call(self, inp):
         for level in self.inlayers:
@@ -610,90 +641,27 @@ class VAErcp3(CustomModel):
             output = [layer(output) for layer in self.outlayers[0]]
             for level in self.outlayers[1:]: # TODO: Get rid of for loops
                 output = [layer(i) for layer, i in zip(level, output)]
-        output.append(output[-1])
+        output.append(output[-1]) #As the model only reconstructs the point, we add filler data and ignore it, because the class is still needed in the testing set to calculate metrics/confusion matrix.
         return output
     
-    def reset_model(self):
-        tf.keras.backend.clear_session()
-        for l in self.inlayers:
-            for i in l:
-                del i
-            del l
-        for l in self.outlayers:
-            for i in l:
-                del i
-            del l
 
-        del self.encoder
-        del self.decoder
-        tf.keras.backend.clear_session()
-        gc.collect()
-        
-        self.inlayers = []
-        self.outlayers = []
-
-        for inputlayer in self.inputsize:
-            self.inlayers.append([tf.keras.layers.Dense(size, activation = 'relu') for size in inputlayer])
-
-        for outputlayer in self.outputsize[:-1]:
-            self.outlayers.append([tf.keras.layers.Dense(size) for size in outputlayer])
-        
-        if len(self.outputsize) > 0:
-            self.outlayers.append([tf.keras.layers.Dense(size, activation = act) for size, act in zip(self.outputsize[-1], self.finalactivation)])
-
-        self.encoder = Encoder(self.inlayersize, self.latentsize)
-        self.decoder = Decoder(self.outlayersize, self.outputsize)
-        if self.compile_fn is not None: self._compile()
-
-    def addcompile(self, fn):
-        self.compile_fn = fn
-
-    def _compile(self):
-        self.compile_fn(self)
-
-    def info(self):
-        VAEargs = ['inputsize', 'inlayersize', 'latentsize', 'outlayersize', 'outputsize', 'finalactivation']
-        res = {}
-        for arg in VAEargs:
-            res[arg] = self.__dict__[arg]
-        return res
-
-
-
-if __name__ == "__main__":
-    import numpy as np
-    import matplotlib.pyplot as plt
-    from train import train, splitdata, crossvalidation, modeltests
-    import matplotlib
-    import random
-    import multiprocessing
-    from src.tests.vaetest import *
-
-    random.seed(0)
-    np.random.seed(0)
-
-    X,Y = testdata()
-
-    
-    Xtest, Ytest = testdata(n4=100)
-    
-    """ a1 = {'inputsize':[], 'inlayersize':[128,64,16], 'latentsize':8, 'outlayersize' : None, 'outputsize' : [[2,1]], 'finalactivation' : [None, 'sigmoid']}
-    a2 = {'inp':X, 'labels':[X,Y], 'testdata':[Xtest,Ytest], 'name':'01', 'description' : '128|64|16, Latent of 8, 500 epochs against 100 from each distribution and 10 outliers'}
-    mp = multiprocessing.Process(target = mptraining, args = [a1,a2])
-    mp.start()
-    mp.join() """
-    """ mp = multiprocessing.Process(target = testp1, args = [X,Y,Xtest,Ytest])
-    mp.start()
-    mp.join() """
-
-    X,Y = testdata(200,200,200,20)
-
-    """ mp = multiprocessing.Process(target = testp2, args = [X,Y,Xtest,Ytest])
-    mp.start()
-    mp.join() """
-
-    testp4(X,Y,Xtest,Ytest)
-    """ mp = multiprocessing.Process(target = testp3, args = [X,Y,Xtest,Ytest])
-    mp.start()
-    mp.join() """
-
+class VAErcp3(VAEdistance):
+    """
+    Old naming used for loading saves
+    """
+    def __init__(self, inputsize, inlayersize, latentsize, outlayersize = None, outputsize = None, finalactivation = ['relu']):
+        """
+        Parameters
+        ----------
+        inputsize : list
+            The sizes of the layers for each input before they enter the encoder/decoder. Can be left empty
+        inlayersize : list
+            The sizes of each layer of the encoder
+        latentsize : int
+            The size of the latent layer
+        outlayersize : list
+            The sizes of each layer of the decoder
+        outputsize : list
+            Size of layers of each output, determines final size of model output. Can be left empty
+        """
+        super(VAErcp3, self).__init__(inputsize, inlayersize, latentsize, outlayersize, outputsize, finalactivation)
