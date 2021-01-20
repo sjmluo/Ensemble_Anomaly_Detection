@@ -161,9 +161,13 @@ def testresults2(file, results):
 
 def testpost2(model, results):
     if results == {}:
-        results.update({'acc':[], 'loss':[], 'cm':[], 'spec':[], 'y_pred': [], 'y_true': [], 'loglikelihood': []})
+        results.update({'acc':[], 'loss':[], 'cm':[], 'spec':[], 'y_pred': [], 'y_true': [], 'loglikelihood': [], 'y_inp':[]})
     testin, testout = testdata2(100, 100, seed = 40)
     testin, testout = test_preprocessing2(testin, testout)
+    if results['y_inp'] == []:
+        results['y_inp'] = np.squeeze(testin,-1).T
+    else:
+        results['y_inp'] = np.concatenate([results['y_inp'], np.squeeze(testin,-1).T])
     
     pred = model.predict(testin)
 
@@ -276,7 +280,7 @@ def callback4(wdir):
     tb_callback = tf.keras.callbacks.TensorBoard(log_dir=wdir)
 
     earlystop = tf.keras.callbacks.EarlyStopping(
-    monitor='val_output_4_loss', min_delta=10e-7, patience=18, verbose=2,
+    monitor='val_output_4_loss', min_delta=10e-7, patience=30, verbose=2,
     mode='auto', baseline=None, restore_best_weights=True
     )
 
@@ -305,7 +309,7 @@ def test4():
     'fc_size': [64,32,1]}
     {'encoder_input_size', 'fc_size', 'decoder_output_size', 'decoder_activation', 'latent_size'}
 
-    cvh = CVHelper(vaeArgs, testdata2, comp, '15', cvRuns = 5,
+    cvh = CVHelper(vaeArgs, testdata2, comp, '01', cvRuns = 5,
                 description = f'Model has 2 inputs, class 0 is where the second input is drawn from a normal distribution\
 with mean of the first input, class 1 is where it isnt. Proper implementation of SVAE\
 \nlosses: {[l.__name__ for l in losses]}\nloss_weights: {loss_weights}\nCEweights: {CEweights}', 
@@ -313,7 +317,7 @@ with mean of the first input, class 1 is where it isnt. Proper implementation of
                 k = 10, 
                 seed = 0, 
                 verbose = 2, 
-                wdir = 'src/reports/test3',
+                wdir = 'src/reports/test5',
                 train_preprocessing = train_preprocessing4,
                 test_preprocessing = test_preprocessing4,
                 **kwargs)
@@ -364,9 +368,13 @@ def ignore(y_true, y_pred):
 
 def testpost5(model, results):
     if results == {}:
-        results.update({'acc':[], 'loss':[], 'cm':[], 'spec':[], 'y_pred': [], 'y_true': [], 'loglikelihood': [], 'alpha': []})
+        results.update({'acc':[], 'loss':[], 'cm':[], 'spec':[], 'y_pred': [], 'y_true': [], 'loglikelihood': [], 'alpha': [], 'y_inp': []})
     testin, testout = testdata2(100, 100, seed = 40)
     testin, testout = test_preprocessing2(testin, testout)
+    if results['y_inp'] == []:
+        results['y_inp'] = np.squeeze(testin,-1).T
+    else:
+        results['y_inp'] = np.concatenate([results['y_inp'], np.squeeze(testin,-1).T])
     
     pred = model.predict(testin)
 
@@ -392,18 +400,16 @@ def test5():
     vaeArgs = {'inputsize':[[4,4],[8,8]],
     'inlayersize': [32, 64, 128],
     'latentsize': latent_size, 
-    'outputsize':[[1,1]],
-    'finalactivation':[None,None,'sigmoid']}
+    'outputsize':[[1,1]]}
 
-    cvh = CVHelper(vaeArgs, testdata2, comp, '01', cvRuns = 5,
-                description = f'Model has 2 inputs, class 0 is where the second input is drawn from a normal distribution\
-with mean of the first input, class 1 is where it isnt. Proper implementation of SVAE\
+    cvh = CVHelper(vaeArgs, testdata2, comp, '03', cvRuns = 5,
+                description = f'Model has 2 inputs, class 0 is where the second input is drawn from a normal distributionwith mean of the first input, class 1 is where it isnt. Proper implementation of VAE predicting distribution with best F1\
 \nlosses: {[l.__name__ for l in losses]}\nloss_weights: {loss_weights}\nCEweights: {CEweights}', 
                 epochs=500, 
                 k = 10, 
                 seed = 0, 
                 verbose = 2, 
-                wdir = 'src/reports/test4',
+                wdir = 'src/reports/test5',
                 train_preprocessing = train_preprocessing5,
                 test_preprocessing = test_preprocessing5,
                 **kwargs)
@@ -466,7 +472,7 @@ def test6():
                 k = 10, 
                 seed = 0, 
                 verbose = 1, 
-                wdir = 'src/reports/test4',
+                wdir = 'src/reports/test5',
                 train_preprocessing = train_preprocessing2,
                 test_preprocessing = test_preprocessing2,
                 **kwargs)
@@ -478,8 +484,8 @@ if __name__ == "__main__":
     #test2()
 
     #test3()
-    #test4()
-    #test5()
+    test4()
+    test5()
     test6()
     """ vaeArgs = {'inputsize':[[4,4],[8,8]],
     'inlayersize': [64, 32, 16],
