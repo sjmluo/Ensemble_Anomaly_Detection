@@ -39,14 +39,12 @@ def load(locs, yinp = False):
     return y_pred, y_true
 
 
-def roc(locs, prefix = '', saveloc = './', showplot = True):
+def roc(locs, prefix = '', saveloc = './', showplot = True, bins = 100):
     """
     ROC plot
     """
     
     y_pred, y_true = load(locs)
-
-    bins = 100
 
     for m in locs:
         y_p, y_t = y_pred[m], y_true[m]
@@ -64,11 +62,16 @@ def roc(locs, prefix = '', saveloc = './', showplot = True):
         plt.plot(fprs, tprs, label = f'{locs[m]}')
     plt.plot([0,1],[0,1], 'r--')
     plt.legend()
-    if showplot:
-        plt.show()
+
+    plt.xlabel('FPR')
+    plt.ylabel('TPR')
+    plt.title('ROC curve')
 
     plt.savefig(f'{saveloc}/plot.png')
     print(f"Saved plot in {saveloc}/plot.png")
+
+    if showplot:
+        plt.show()
 
 def perf(locs, prefix = '', saveloc = './', showplot = True, alpha = 0.5):
     """
@@ -78,6 +81,7 @@ def perf(locs, prefix = '', saveloc = './', showplot = True, alpha = 0.5):
     y_inp, y_pred, y_true = load(locs, True)
 
     for l in locs:
+        plt.figure()
         inp, pred, true = y_inp[l], y_pred[l], y_true[l]
     
         df = pd.DataFrame([*[inp[:, col] for col in range(inp.shape[1])], pred, true]).T
@@ -101,13 +105,13 @@ def perf(locs, prefix = '', saveloc = './', showplot = True, alpha = 0.5):
         plt.plot(inp[np.logical_and(true==0, pred == 0),0], inp[np.logical_and(true==0, pred == 0),1], '.k', label = 'TN')
         plt.plot(inp[np.logical_and(true==1, pred == 1),0], inp[np.logical_and(true==1, pred == 1),1], 'xk', label = 'TP')
         plt.legend()
-
-
-        if showplot:
-            plt.show()
+        plt.title(f"Plot of {locs[l]} with alpha {alpha}")
 
         plt.savefig(f'{saveloc}/{l}plot.png')
         print(f"Saved plot in {saveloc}/{l}plot.png")
+
+        if showplot:
+            plt.show()
 
 
 if __name__ == "__main__":    
@@ -118,6 +122,7 @@ if __name__ == "__main__":
     parser.add_argument('--prefix', help = 'prefix for directory for all saves', default = '')
     parser.add_argument('--saveloc', help = 'Location to save plot', default = './')
     parser.add_argument('-q', '--quiet', help = 'Disable show plot', action = 'store_true', default = False)
+    parser.add_argument('-s', '--steps', help = 'Number of steps or bins ROC should take', default = 100, type = int)
 
     group = parser.add_mutually_exclusive_group()
     group.add_argument('-f', type = float, help = 'Value where predictions are lower than are categorised as class 0', default = 0.5)
@@ -146,8 +151,8 @@ if __name__ == "__main__":
         plotargs[l] = n
 
     if args.plot_type == 'roc':
-        roc(plotargs, prefix, args.saveloc, not args.quiet)
+        roc(plotargs, prefix, args.saveloc, not args.quiet, args.steps)
     elif args.plot_type == 'perf':
-        perf(locs, prefix, args.saveloc, not args.quiet, barrier)
+        perf(plotargs, prefix, args.saveloc, not args.quiet, barrier)
     else:
         raise ValueError('Bad arguement')
