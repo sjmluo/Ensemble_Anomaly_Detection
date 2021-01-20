@@ -1,6 +1,6 @@
 from src.CVHelper import CVHelper, crunch_predictions, writeResults
 from src.data_exploration.seismicdata import rawdf, data_preprocessing
-from src.train import weightedce, confusionmat
+from src.train import weightedce, confusionmat, bestalpha
 from functools import partial
 import tensorflow as tf
 import pandas as pd
@@ -134,7 +134,6 @@ def test1():
                 k = 10, 
                 seed = 0, 
                 verbose = 2, 
-                testsplit = (1, 20), 
                 wdir = 'src/reports/test2',
                 train_preprocessing = train_preprocessing,
                 test_preprocessing = test_preprocessing,
@@ -219,7 +218,6 @@ def test2():
                 k = 10, 
                 seed = 0, 
                 verbose = 1, 
-                testsplit = (1, 20), 
                 wdir = 'src/reports/test2',
                 train_preprocessing = train_preprocessing2,
                 test_preprocessing = test_preprocessing2,
@@ -253,7 +251,6 @@ def test3():
                 k = 10, 
                 seed = 0, 
                 verbose = 1, 
-                testsplit = (1, 20), 
                 wdir = 'src/reports/test3',
                 train_preprocessing = train_preprocessing2,
                 test_preprocessing = test_preprocessing2,
@@ -316,7 +313,6 @@ with mean of the first input, class 1 is where it isnt. Proper implementation of
                 k = 10, 
                 seed = 0, 
                 verbose = 2, 
-                testsplit = (1, 20), 
                 wdir = 'src/reports/test3',
                 train_preprocessing = train_preprocessing4,
                 test_preprocessing = test_preprocessing4,
@@ -366,17 +362,6 @@ def callback5(wdir):
 def ignore(y_true, y_pred):
     return 0
 
-def bestalpha(y_true, y_pred):
-    highestalpha = 0
-    highestf1 = 0
-    for alpha in sorted(np.squeeze(y_pred,-1)):
-        cm = confusionmat(y_pred, y_true, alpha)
-        f1 = 2*cm[1,1]/(2*cm[1,1]+cm[0,1]+cm[1,0])
-        if f1 > highestf1:
-            highestalpha = alpha
-            highestf1 = f1
-    return highestalpha, highestf1
-
 def testpost5(model, results):
     if results == {}:
         results.update({'acc':[], 'loss':[], 'cm':[], 'spec':[], 'y_pred': [], 'y_true': [], 'loglikelihood': [], 'alpha': []})
@@ -418,7 +403,6 @@ with mean of the first input, class 1 is where it isnt. Proper implementation of
                 k = 10, 
                 seed = 0, 
                 verbose = 2, 
-                testsplit = (1, 20), 
                 wdir = 'src/reports/test4',
                 train_preprocessing = train_preprocessing5,
                 test_preprocessing = test_preprocessing5,
@@ -444,9 +428,13 @@ def test_preprocessing5(testin, testout):
 
 def testpost6(model, results):
     if results == {}:
-        results.update({'acc':[], 'loss':[], 'cm':[], 'spec':[], 'y_pred': [], 'y_true': [], 'loglikelihood': [], 'alpha': []})
+        results.update({'acc':[], 'loss':[], 'cm':[], 'spec':[], 'y_pred': [], 'y_true': [], 'loglikelihood': [], 'alpha': [], 'y_inp': []})
     testin, testout = testdata2(100, 100, seed = 40)
     testin, testout = test_preprocessing2(testin, testout)
+    if results['y_inp'] == []:
+        results['y_inp'] = np.squeeze(testin,-1).T
+    else:
+        results['y_inp'] = np.concatenate([results['y_inp'], np.squeeze(testin,-1).T])
     
     pred = model.predict(testin)
 
@@ -478,7 +466,6 @@ def test6():
                 k = 10, 
                 seed = 0, 
                 verbose = 1, 
-                testsplit = (1, 20), 
                 wdir = 'src/reports/test4',
                 train_preprocessing = train_preprocessing2,
                 test_preprocessing = test_preprocessing2,

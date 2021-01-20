@@ -114,3 +114,14 @@ def weightedce(y_true, y_pred, weights = [[1,1],[1,1]], conf = 0.5):
     mask = tf.where(tf.math.equal(tf.squeeze(y_true), tf.constant(0)), predclass[:,0], predclass[:,1])
 
     return tf.math.multiply(tf.keras.losses.binary_crossentropy(y_true, y_pred), mask)
+
+def bestalpha(y_true, y_pred):
+    highestalpha = 0
+    highestf1 = 0
+    for alpha in sorted(np.squeeze(y_pred,-1)):
+        cm = confusionmat(y_pred, y_true, alpha)
+        f1 = 2*cm[1,1]/(2*cm[1,1]+cm[0,1]+cm[1,0])
+        if f1 > highestf1:
+            highestalpha = alpha
+            highestf1 = f1
+    return highestalpha, highestf1
