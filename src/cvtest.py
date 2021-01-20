@@ -61,7 +61,7 @@ class WCEHelper:
 
 class DoubleVAE(CustomModel):
     def __init__(self, **kwargs):
-        super(CustomModel, self).__init__()
+        super(DoubleVAE, self).__init__()
 
         self.m1 = VAE(**kwargs)
         self.m2 = VAE(**kwargs)

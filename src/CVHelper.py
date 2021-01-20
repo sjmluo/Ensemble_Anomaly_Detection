@@ -218,6 +218,7 @@ class CVHelper:
         
         with open(f'{self.wdir}/overall', 'w') as file:
             inf = self.model.info()
+            file.write(f'Model type: {self.model_class.__name__}\n')
             for a in inf:
                 file.write(f'{a}: {inf[a]}\n')
             results = {'acc':[], 'loss':[], 'cm':[], 'spec':[], 'loglikelihood': [],
