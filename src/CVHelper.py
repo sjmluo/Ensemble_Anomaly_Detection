@@ -56,7 +56,6 @@ class CVHelper:
                 k = 10, 
                 seed = 0, 
                 verbose = 0, 
-                testsplit = (1, 20), 
                 wdir = 'src/reports/test1',
                 train_preprocessing = None,
                 test_preprocessing = None,
@@ -107,7 +106,6 @@ class CVHelper:
         self.cvRuns = cvRuns
         self.seed = seed
         self.verbose = verbose
-        self.testsplit = testsplit
         self.wdir = wdir
         self.train_preprocessing = train_preprocessing
         self.test_preprocessing = test_preprocessing
