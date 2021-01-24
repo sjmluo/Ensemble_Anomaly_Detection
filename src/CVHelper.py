@@ -189,7 +189,7 @@ class CVHelper:
                 self.model.reset_model()
                 self.model.reset_states()
                 arr = np.setdiff1d(list(range(self.k)), [i]).astype(int)
-                trainind, testind = np.concatenate(fold_ind[arr]), fold_ind[i]
+                trainind, testind = np.asarray(np.concatenate(fold_ind[arr]).astype('int32')), np.asarray(fold_ind[i]).astype('int32')
                 trainin, trainout = self.inp.iloc[trainind, :].copy(), self.labels.iloc[trainind, :].copy()
                 testin, testout = self.inp.iloc[testind,:].copy(), self.labels.iloc[testind,:].copy()
                 
