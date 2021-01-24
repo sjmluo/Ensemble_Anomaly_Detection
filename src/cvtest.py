@@ -179,8 +179,8 @@ def data_preprocessing2(trainin):
 
 def train_preprocessing2(trainin, trainout):
     preprocessing = SMOTETomek(n_jobs=-1)
-    X,y = preprocessing.fit_resample(trainin, trainout.iloc[:,-1].astype('int32'))
-    X['class'] = y
+    #X,y = preprocessing.fit_resample(trainin, trainout.iloc[:,-1].astype('int32'))
+    #X['class'] = y
 
     return data_preprocessing2(trainout)
 
@@ -302,22 +302,22 @@ def test4():
     kwargs = {'callbacks': callback4, 'model': SVAE, 
     'postresult': testresults2, 'postfold': testpost2}
     vaeArgs = {'inputsize':[[4,4],[8,8]],
-    'inlayersize': [128, 512, 512],
+    'inlayersize': [64, 32, 16],
     'latentsize': latent_size, 
     'outputsize':[[4,4], [1,1]],
     'finalactivation':[None,None,'sigmoid'],
     'fc_size': [64,32,1]}
     {'encoder_input_size', 'fc_size', 'decoder_output_size', 'decoder_activation', 'latent_size'}
 
-    cvh = CVHelper(vaeArgs, testdata2, comp, '01', cvRuns = 5,
+    cvh = CVHelper(vaeArgs, testdata2, comp, '11', cvRuns = 5,
                 description = f'Model has 2 inputs, class 0 is where the second input is drawn from a normal distribution\
-with mean of the first input, class 1 is where it isnt. Proper implementation of SVAE\
+with mean of the first input, class 1 is where it isnt. Proper implementation of SVAE with no outliers\
 \nlosses: {[l.__name__ for l in losses]}\nloss_weights: {loss_weights}\nCEweights: {CEweights}', 
                 epochs=500, 
                 k = 10, 
                 seed = 0, 
                 verbose = 2, 
-                wdir = 'src/reports/test5',
+                wdir = 'src/reports/test7',
                 train_preprocessing = train_preprocessing4,
                 test_preprocessing = test_preprocessing4,
                 **kwargs)
@@ -331,8 +331,8 @@ def data_preprocessing4(trainin):
 
 def train_preprocessing4(trainin, trainout):
     preprocessing = SMOTETomek(n_jobs=-1)
-    X,y = preprocessing.fit_resample(trainin, trainout.iloc[:,-1].astype('int32'))
-    X['class'] = y
+    #X,y = preprocessing.fit_resample(trainin, trainout.iloc[:,-1].astype('int32'))
+    #X['class'] = y
 
     return data_preprocessing4(trainout)
 
@@ -395,21 +395,21 @@ def test5():
     comp = CompileHelper(losses, loss_weights)
     
 
-    kwargs = {'callbacks': callback5, 'model': VAErcp, 
+    kwargs = {'callbacks': callback5, 'model': VAErcp2, 
     'postresult': testresults2, 'postfold': testpost5}
     vaeArgs = {'inputsize':[[4,4],[8,8]],
-    'inlayersize': [32, 64, 128],
+    'inlayersize': [64, 32, 16],
     'latentsize': latent_size, 
     'outputsize':[[1,1]]}
 
-    cvh = CVHelper(vaeArgs, testdata2, comp, '03', cvRuns = 5,
-                description = f'Model has 2 inputs, class 0 is where the second input is drawn from a normal distributionwith mean of the first input, class 1 is where it isnt. Proper implementation of VAE predicting distribution with best F1\
+    cvh = CVHelper(vaeArgs, testdata2, comp, '04', cvRuns = 5,
+                description = f'Model has 2 inputs, class 0 is where the second input is drawn from a normal distribution with mean of the first input, class 1 is where it isnt. Proper implementation of VAE predicting distribution without best F1 using encoder\
 \nlosses: {[l.__name__ for l in losses]}\nloss_weights: {loss_weights}\nCEweights: {CEweights}', 
                 epochs=500, 
                 k = 10, 
                 seed = 0, 
                 verbose = 2, 
-                wdir = 'src/reports/test5',
+                wdir = 'src/reports/test7',
                 train_preprocessing = train_preprocessing5,
                 test_preprocessing = test_preprocessing5,
                 **kwargs)
@@ -423,8 +423,11 @@ def data_preprocessing5(trainin):
 
 def train_preprocessing5(trainin, trainout):
     preprocessing = SMOTETomek(n_jobs=-1)
-    X,y = preprocessing.fit_resample(trainin, trainout.iloc[:,-1].astype('int32'))
-    X['class'] = y
+    try:
+        X,y = preprocessing.fit_resample(trainin, trainout.iloc[:,-1].astype('int32'))
+        X['class'] = y
+    except:
+        pass
 
     return data_preprocessing5(trainout)
 
@@ -460,19 +463,19 @@ def test6():
     'postresult': testresults2, 'postfold': testpost6}
     vaeArgs = {'inputsize':[[4,4],[8,8]],
     'inlayersize': [64, 32, 16],
-    'latentsize': 4, 
+    'latentsize': 16, 
     'outputsize':[[4,4], [1,1]],
     'finalactivation':[None,None,None]}
     {'encoder_input_size', 'fc_size', 'decoder_output_size', 'decoder_activation', 'latent_size'}
 
-    cvh = CVHelper(vaeArgs, testdata2, comp, '05', cvRuns = 5,
-                description = f'Model has 2 inputs, class 0 is where the second input is drawn from a normal distribution with mean of the first input, class 1 is where it isnt. using distance as outlier metric\
+    cvh = CVHelper(vaeArgs, testdata2, comp, '06', cvRuns = 5,
+                description = f'Model has 2 inputs, class 0 is where the second input is drawn from a normal distribution with mean of the first input, class 1 is where it isnt. using distance as outlier metric with no ouliers\
                 \nlosses: {[l.__name__ for l in losses]}\nloss_weights: {loss_weights}\nCEweights: {CEweights}', 
                 epochs=500, 
                 k = 10, 
                 seed = 0, 
                 verbose = 1, 
-                wdir = 'src/reports/test5',
+                wdir = 'src/reports/test7',
                 train_preprocessing = train_preprocessing2,
                 test_preprocessing = test_preprocessing2,
                 **kwargs)
@@ -484,9 +487,9 @@ if __name__ == "__main__":
     #test2()
 
     #test3()
-    test4()
+    #test4()
     test5()
-    test6()
+    #test6()
     """ vaeArgs = {'inputsize':[[4,4],[8,8]],
     'inlayersize': [64, 32, 16],
     'latentsize': 2, 
