@@ -1,4 +1,7 @@
+import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
+import seaborn as sns
 from .metrics import metrics, MetricCollection
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
@@ -14,6 +17,10 @@ class EvaluationFramework:
 
     def predict(self, x):
         y_pred = self.model.predict(x)
+        return y_pred
+    
+    def predict_proba(self, x):
+        y_pred = self.model.predict_proba(x)
         return y_pred
 
     def score(self,y,y_pred):
@@ -42,7 +49,6 @@ class EvaluationFramework:
 
         if y is None:
             y = self.predict(x)
-            #y = predict_results['predictions']
 
         if x_reduced is None:
             print('Method not recognised')
@@ -55,3 +61,53 @@ class EvaluationFramework:
         if method == 'pca':
             plt.ylabel('PCA2')
             plt.xlabel('PCA1')
+            
+    def heatmap(self, x, method='pca'):
+        # Dimension Reduction
+        if method == 'pca':
+            reducer = PCA(n_components=2)
+        elif method == 'umap':
+            reducer = UMAP()
+        else:
+            print('Failed to find method.')
+            return
+        
+        # Grid Coordinates
+        reducer.fit(x)
+        x_reduced = reducer.fit_transform(x)
+        x_min, y_min = x_reduced.min(0)
+        x_max, y_max = x_reduced.max(0)
+        x_grid = np.array([[i,j] for i in np.linspace(x_min,x_max,100) for j in np.linspace(y_min,y_max,100)])
+        x_ = reducer.inverse_transform(x_grid)
+        y_preds = self.model.predict_proba(x_)
+        
+        # Heatmap
+        plt.scatter(x_grid[:,0], x_grid[:,1], c=y_preds[:,1])
+        cbar = plt.colorbar()
+        cbar.ax.set_ylabel('Anomaly Likelihood', rotation=270)
+        cbar.ax.get_yaxis().labelpad = 15
+        plt.title(label=method.upper())
+        
+    def pairplot(self, x, palette='RdBu'):
+        df = pd.DataFrame(x)
+        # Colorbar Setup
+        prob_anom = self.predict_proba(x)[:,1]
+        norm = plt.Normalize(prob_anom.min(), prob_anom.max())
+        sm = plt.cm.ScalarMappable(cmap=palette, norm=norm)
+        sm.set_array([])
+        # Graphs
+        g = sns.PairGrid(df, palette=palette)
+        g.map_lower(sns.kdeplot)
+        g.map_diag(sns.kdeplot)
+        g.map_upper(sns.scatterplot, hue=prob_anom)
+        # Styling
+        cbar_ax = g.fig.add_axes([0.85, 0.15, 0.05, 0.7])
+        g.fig.subplots_adjust(right=0.8, top=0.9)
+        g.fig.colorbar(sm, cax=cbar_ax)
+        g.fig.suptitle('Pairwise Plot')
+        cbar_ax.set_ylabel('Anomaly Likelihood', rotation=270)
+        cbar_ax.get_yaxis().labelpad = 15
+        return g
+    
+    
+    
