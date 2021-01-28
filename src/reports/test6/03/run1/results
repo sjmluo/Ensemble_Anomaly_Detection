@@ -1,0 +1,37 @@
+Model has 2 inputs, class 0 is where the second input is drawn from a normal distributionwith mean of the first input, class 1 is where it isnt. Proper implementation of VAE predicting distribution with best F1
+losses: ['cl5', 'mean_absolute_error', 'mean_absolute_error', 'ignore']
+loss_weights: [1, 1, 1, 0]
+CEweights: [[1, 10], [1, 1]]
+Average accuracy: 0.65
+Balanced acc: nan
+Average specificity: 0.65
+Average sensitivity (Detection rate): nan
+Average loss: [0.81813292]
+Average False Alarm: nan
+Average F1: 0.0
+Average cm:
+||True 0| True 1|
+|-|-|-|
+|Predicted 0|7.8|0.0
+|Predicted 1|4.2|0.0
+
+|Acc|Spec|Loss|
+0.65|0.65|[0.81813292]
+CV took 85.88248360599755 seconds
+Pure training took 79.27638409599604
+Test result on unseen data:
+Average accuracy: 0.588
+Balanced acc: 0.588
+Average specificity: 0.285
+Average sensitivity (Detection rate): 0.8909999999999999
+Average loss: nan
+Average False Alarm: 0.109
+Average F1: 0.6838066001534918
+Average cm:
+||True 0| True 1|
+|-|-|-|
+|Predicted 0|28.5|10.9
+|Predicted 1|71.5|89.1
+
+|Acc|Spec|Loss|
+0.588|0.285|nan

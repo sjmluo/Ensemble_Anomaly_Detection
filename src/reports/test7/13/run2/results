@@ -1,0 +1,37 @@
+Model has 2 inputs, class 0 is where the second input is drawn from a normal distribution with mean of the first input, class 1 is where it isnt. Proper implementation of VAE predicting distribution without best F1 with no outliers
+losses: ['cl5', 'mean_absolute_error', 'mean_absolute_error', 'ignore']
+loss_weights: [1, 1, 1, 0]
+CEweights: [[1, 10], [1, 1]]
+Average accuracy: 0.7999999999999999
+Balanced acc: nan
+Average specificity: 0.7999999999999999
+Average sensitivity (Detection rate): nan
+Average loss: [0.46840368]
+Average False Alarm: nan
+Average F1: 0.0
+Average cm:
+||True 0| True 1|
+|-|-|-|
+|Predicted 0|9.6|0.0
+|Predicted 1|2.4|0.0
+
+|Acc|Spec|Loss|
+0.7999999999999999|0.7999999999999999|[0.46840368]
+CV took 102.93834163999873 seconds
+Pure training took 95.78157725700021
+Test result on unseen data:
+Average accuracy: 0.6225
+Balanced acc: 0.6224999999999999
+Average specificity: 0.369
+Average sensitivity (Detection rate): 0.8759999999999999
+Average loss: nan
+Average False Alarm: 0.124
+Average F1: 0.6988432389309932
+Average cm:
+||True 0| True 1|
+|-|-|-|
+|Predicted 0|36.9|12.4
+|Predicted 1|63.1|87.6
+
+|Acc|Spec|Loss|
+0.6225|0.369|nan

@@ -1,0 +1,43 @@
+Model type: VampriorRcp
+inputsize: ListWrapper([ListWrapper([4, 4]), ListWrapper([8, 8])])
+inlayersize: ListWrapper([64, 32, 16])
+latentsize: 4
+outlayersize: ListWrapper([16, 32, 64])
+outputsize: ListWrapper([ListWrapper([4, 4, 1, 1])])
+Model has 2 inputs, class 0 is where the second input is drawn from a normal distribution with mean of the first input, class 1 is where it isnt. Proper implementation of VAE predicting distribution without best F1 using encoder
+losses: ['passon', 'passon', 'mean_absolute_error', 'mean_absolute_error', 'passon']
+loss_weights: [1, 1, 1, 1, 0]
+CEweights: [[1, 10], [1, 1]]
+Average accuracy: 0.08153846153846153
+Balanced acc: 0.5025
+Average specificity: 0.004999999999999999
+Average sensitivity (Detection rate): 1.0
+Average loss: [2.97043131]
+Average False Alarm: 0.0
+Average F1: 0.14347202295552366
+Average cm:
+||True 0| True 1|
+|-|-|-|
+|Predicted 0|0.06|0.0
+|Predicted 1|11.940000000000001|1.0
+
+|Acc|Spec|Loss|
+0.08153846153846153|0.004999999999999999|[2.97043131]
+CV took 64.84827000140021 seconds
+Pure training took 57.100389189400445
+Test result on unseen data:
+Average accuracy: 0.5124
+Balanced acc: 0.5124
+Average specificity: 0.041199999999999994
+Average sensitivity (Detection rate): 0.9836
+Average loss: nan
+Average False Alarm: 0.016399999999999998
+Average F1: 0.6685698749320284
+Average cm:
+||True 0| True 1|
+|-|-|-|
+|Predicted 0|4.12|1.6400000000000001
+|Predicted 1|95.88000000000001|98.36000000000001
+
+|Acc|Spec|Loss|
+0.5124|0.041199999999999994|nan

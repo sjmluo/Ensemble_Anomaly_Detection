@@ -1,0 +1,43 @@
+Model type: Vamprior
+inputsize: ListWrapper([ListWrapper([4, 4]), ListWrapper([8, 8])])
+inlayersize: ListWrapper([64, 32, 16])
+latentsize: 4
+outlayersize: ListWrapper([16, 32, 64])
+outputsize: ListWrapper([ListWrapper([4, 4]), ListWrapper([1, 1])])
+Model has 2 inputs, class 0 is where the second input is drawn from a normal distribution with mean of the first input, class 1 is where it isnt. Vampprior trainign with outliers                
+losses: ['mean_absolute_error', 'mean_absolute_error', 'passon']
+loss_weights: [1, 1, 0]
+CEweights: [[1, 1], [1, 1]]
+Average accuracy: 0.6569230769230768
+Balanced acc: 0.7316666666666666
+Average specificity: 0.6433333333333332
+Average sensitivity (Detection rate): 0.82
+Average loss: [1.23508394]
+Average False Alarm: 0.18
+Average F1: 0.26885245901639343
+Average cm:
+||True 0| True 1|
+|-|-|-|
+|Predicted 0|7.719999999999999|0.18
+|Predicted 1|4.28|0.82
+
+|Acc|Spec|Loss|
+0.6569230769230768|0.6433333333333332|[1.23508394]
+CV took 110.98229314339987 seconds
+Pure training took 106.15676947299957
+Test result on unseen data:
+Average accuracy: 0.7532000000000001
+Balanced acc: 0.7532000000000001
+Average specificity: 0.6718000000000001
+Average sensitivity (Detection rate): 0.8346000000000001
+Average loss: nan
+Average False Alarm: 0.1654
+Average F1: 0.7717773256889219
+Average cm:
+||True 0| True 1|
+|-|-|-|
+|Predicted 0|67.18|16.54
+|Predicted 1|32.82|83.46000000000001
+
+|Acc|Spec|Loss|
+0.7532000000000001|0.6718000000000001|nan

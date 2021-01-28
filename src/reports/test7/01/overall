@@ -1,0 +1,44 @@
+Model type: SVAE
+inputsize: [[4, 4], [8, 8]]
+inlayersize: [64, 32, 16]
+latentsize: 16
+outlayersize: ListWrapper([16, 32, 64])
+outputsize: [[4, 4], [1, 1]]
+fc_size: [64, 32, 1]
+Model has 2 inputs, class 0 is where the second input is drawn from a normal distributionwith mean of the first input, class 1 is where it isnt. Proper implementation of SVAE with no outliers
+losses: ['mean_absolute_error', 'mean_absolute_error', 'KLD', 'weighted_ce']
+loss_weights: [1, 1, 1, 10]
+CEweights: [[1, 10], [1, 1]]
+Average accuracy: 0.9492307692307692
+Balanced acc: 0.8625
+Average specificity: 0.965
+Average sensitivity (Detection rate): 0.76
+Average loss: [4.75116738]
+Average False Alarm: 0.24
+Average F1: 0.6972477064220183
+Average cm:
+||True 0| True 1|
+|-|-|-|
+|Predicted 0|11.58|0.24
+|Predicted 1|0.42000000000000004|0.76
+
+|Acc|Spec|Loss|
+0.9492307692307692|0.965|[4.75116738]
+CV took 61.72045907720003 seconds
+Pure training took 57.77534643900162
+Test result on unseen data:
+Average accuracy: 0.6535000000000001
+Balanced acc: 0.6535
+Average specificity: 0.9473999999999999
+Average sensitivity (Detection rate): 0.3596
+Average loss: nan
+Average False Alarm: 0.6404
+Average F1: 0.5092763064721711
+Average cm:
+||True 0| True 1|
+|-|-|-|
+|Predicted 0|94.73999999999998|64.03999999999999
+|Predicted 1|5.26|35.959999999999994
+
+|Acc|Spec|Loss|
+0.6535000000000001|0.9473999999999999|nan

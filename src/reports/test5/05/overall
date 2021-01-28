@@ -1,0 +1,44 @@
+Model type: VAEdistance
+inputsize: ListWrapper([ListWrapper([4, 4]), ListWrapper([8, 8])])
+inlayersize: ListWrapper([64, 32, 16])
+latentsize: 4
+outlayersize: ListWrapper([16, 32, 64])
+outputsize: ListWrapper([ListWrapper([4, 4]), ListWrapper([1, 1])])
+finalactivation: ListWrapper([None, None, None])
+Model has 2 inputs, class 0 is where the second input is drawn from a normal distribution with mean of the first input, class 1 is where it isnt. using distance as outlier metric                
+losses: ['mean_absolute_error', 'mean_absolute_error', 'ignore']
+loss_weights: [1, 1, 0]
+CEweights: [[1, 1], [1, 1]]
+Average accuracy: 0.8215384615384616
+Balanced acc: 0.775
+Average specificity: 0.8300000000000001
+Average sensitivity (Detection rate): 0.72
+Average loss: [0.72882]
+Average False Alarm: 0.28
+Average F1: 0.3829787234042553
+Average cm:
+||True 0| True 1|
+|-|-|-|
+|Predicted 0|9.96|0.28
+|Predicted 1|2.04|0.72
+
+|Acc|Spec|Loss|
+0.8215384615384616|0.8300000000000001|[0.72882]
+CV took 67.67756377480073 seconds
+Pure training took 62.78313312779828
+Test result on unseen data:
+Average accuracy: 0.8262999999999999
+Balanced acc: 0.8263
+Average specificity: 0.8528
+Average sensitivity (Detection rate): 0.7998000000000001
+Average loss: nan
+Average False Alarm: 0.20020000000000002
+Average F1: 0.8215716486902928
+Average cm:
+||True 0| True 1|
+|-|-|-|
+|Predicted 0|85.28|20.02
+|Predicted 1|14.719999999999999|79.97999999999999
+
+|Acc|Spec|Loss|
+0.8262999999999999|0.8528|nan

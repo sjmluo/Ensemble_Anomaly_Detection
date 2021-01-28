@@ -1,0 +1,43 @@
+Model type: VAErcp
+inputsize: ListWrapper([ListWrapper([4, 4]), ListWrapper([8, 8])])
+inlayersize: ListWrapper([64, 32, 16])
+latentsize: 4
+outlayersize: ListWrapper([16, 32, 64])
+outputsize: ListWrapper([ListWrapper([4, 4, 1, 1])])
+Model has 2 inputs, class 0 is where the second input is drawn from a normal distribution with mean of the first input, class 1 is where it isnt. Proper implementation of VAE predicting distribution with best F1
+losses: ['cl5', 'mean_absolute_error', 'mean_absolute_error', 'ignore']
+loss_weights: [1, 1, 1, 0]
+CEweights: [[1, 10], [1, 1]]
+Average accuracy: 0.7569230769230769
+Balanced acc: 0.6116666666666667
+Average specificity: 0.7833333333333333
+Average sensitivity (Detection rate): 0.44000000000000006
+Average loss: [0.77334362]
+Average False Alarm: 0.56
+Average F1: 0.21782178217821785
+Average cm:
+||True 0| True 1|
+|-|-|-|
+|Predicted 0|9.4|0.56
+|Predicted 1|2.5999999999999996|0.44000000000000006
+
+|Acc|Spec|Loss|
+0.7569230769230769|0.7833333333333333|[0.77334362]
+CV took 90.76297924240062 seconds
+Pure training took 83.32145697199886
+Test result on unseen data:
+Average accuracy: 0.5772
+Balanced acc: 0.5771999999999999
+Average specificity: 0.24080000000000001
+Average sensitivity (Detection rate): 0.9136
+Average loss: nan
+Average False Alarm: 0.0864
+Average F1: 0.6836276563903023
+Average cm:
+||True 0| True 1|
+|-|-|-|
+|Predicted 0|24.08|8.639999999999999
+|Predicted 1|75.91999999999999|91.35999999999999
+
+|Acc|Spec|Loss|
+0.5772|0.24080000000000001|nan

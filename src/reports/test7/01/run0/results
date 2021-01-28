@@ -1,0 +1,37 @@
+Model has 2 inputs, class 0 is where the second input is drawn from a normal distributionwith mean of the first input, class 1 is where it isnt. Proper implementation of SVAE with no outliers
+losses: ['mean_absolute_error', 'mean_absolute_error', 'KLD', 'weighted_ce']
+loss_weights: [1, 1, 1, 10]
+CEweights: [[1, 10], [1, 1]]
+Average accuracy: 0.8999999999999999
+Balanced acc: 0.5333333333333333
+Average specificity: 0.9666666666666667
+Average sensitivity (Detection rate): 0.1
+Average loss: [12.08300228]
+Average False Alarm: 0.9
+Average F1: 0.13333333333333333
+Average cm:
+||True 0| True 1|
+|-|-|-|
+|Predicted 0|11.6|0.9
+|Predicted 1|0.4|0.1
+
+|Acc|Spec|Loss|
+0.8999999999999999|0.9666666666666667|[12.08300228]
+CV took 39.12884361599936 seconds
+Pure training took 35.23266787300054
+Test result on unseen data:
+Average accuracy: 0.5715
+Balanced acc: 0.5715
+Average specificity: 0.965
+Average sensitivity (Detection rate): 0.17800000000000002
+Average loss: nan
+Average False Alarm: 0.8220000000000001
+Average F1: 0.29348722176422093
+Average cm:
+||True 0| True 1|
+|-|-|-|
+|Predicted 0|96.5|82.2
+|Predicted 1|3.5|17.8
+
+|Acc|Spec|Loss|
+0.5715|0.965|nan
