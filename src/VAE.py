@@ -418,10 +418,10 @@ class VAErcp(CustomModel):
         mu = [m(decoder_out) for m in self.mu]
         log_sigma = [s(decoder_out) for s in self.log_sigma]
         sigma = [tf.math.exp(s) for s in log_sigma]
-        output.append(self.reconstruction_probability(inp, mean, var))
+        output.append(self.KL(mu, sigma, log_sigma))
         return output
     
-    def reconstruction_probability(self, inp, mean, var, L = 50):
+    def reconstruction_probability(self, mean, var):
         norm = self.latent(mean, var)
 
         decoder_out = self.decoder(norm)
@@ -441,7 +441,7 @@ class VAErcp(CustomModel):
 
             normal = tfp.distributions.Normal(mu, sigma)
             probs += normal.prob(inp)
-        probs = tf.reduce_mean(tf.boolean_mask(probs, tf.math.is_finite(probs)),axis = 0)
+        probs = np.nanmean(probs, axis = 0)
         return [1 - (probs/L)]
 
 
@@ -461,7 +461,7 @@ class VAErcp(CustomModel):
         
         var = tf.exp(logvar)
 
-        return self.reconstruction_probability(inp, mean, var, L)
+        return self.reconstruction_probability(mean, var)
 
 
     def info(self):
