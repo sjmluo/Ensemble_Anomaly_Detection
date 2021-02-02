@@ -38,8 +38,35 @@ def load(locs, yinp = False):
         return y_inp, y_pred, y_true
     return y_pred, y_true
 
+def loadheatmap(locs):
+    saves = []
+    for loc in locs:
+        with open(f'{prefix}{loc}/save.pkl', 'rb') as f:
+            saves.append(pickle.load(f).attr)
 
-def roc(locs, prefix = '', saveloc = './', showplot = True, bins = 100):
+    x = {}
+    y = {}
+    z = {}
+
+    for l in locs:
+        x[l] = []
+        y[l] = []
+        z[l] = []
+
+    for l, save in zip(locs, saves):
+        for k in save['results']:
+            if k.startswith('run'):
+                x[l].append(save['results'][k]['post']['contour_x'])
+                y[l].append(save['results'][k]['post']['contour_y'])
+                z[l].append(save['results'][k]['post']['contour_z'])
+        x[l] = np.mean(x[l],0)
+        y[l] = np.mean(y[l],0)
+        z[l] = np.mean(z[l],0)
+        z[l] = np.mean(z[l],0)
+    
+    return x,y,z
+
+def roc(locs, prefix = '', saveloc = './', showplot = True, bins = 1000):
     """
     ROC plot
     """
@@ -113,10 +140,23 @@ def perf(locs, prefix = '', saveloc = './', showplot = True, alpha = 0.5):
         if showplot:
             plt.show()
 
+def heatmap(locs, prefix = '', saveloc = './', showplot = True):
+    x,y,z = loadheatmap(locs)
+    for l in locs:
+        plt.figure()
+        #plt.contour([inp[:,0]], [inp[:,1]], np.expand_dims(pred, axis = -1), colors='black')
+        plt.contourf(x[l], y[l], z[l], cmap='RdGy')
+        plt.colorbar()
+
+        plt.savefig(f'{saveloc}/{l}plot.png')
+        print(f"Saved plot in {saveloc}/{l}plot.png")
+        
+        if showplot:
+            plt.show()
 
 if __name__ == "__main__":    
     parser = argparse.ArgumentParser()
-    parser.add_argument('plot_type', help = "Type of plot, ROC or performance(perf)", choices = ['roc', 'perf'])
+    parser.add_argument('plot_type', help = "Type of plot, ROC or performance(perf)", choices = ['roc', 'perf','heat'])
     parser.add_argument('--locs', action = 'store', nargs = '+', help = 'Directories containing save.pkl')
     parser.add_argument('--names', action = 'store', nargs = '*', help = 'Names for corresponding save')
     parser.add_argument('--prefix', help = 'prefix for directory for all saves', default = '')
@@ -154,5 +194,7 @@ if __name__ == "__main__":
         roc(plotargs, prefix, args.saveloc, not args.quiet, args.steps)
     elif args.plot_type == 'perf':
         perf(plotargs, prefix, args.saveloc, not args.quiet, barrier)
+    elif args.plot_type == 'heat':
+        heatmap(plotargs, prefix, args.saveloc, not args.quiet)
     else:
         raise ValueError('Bad arguement')
