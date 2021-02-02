@@ -7,7 +7,7 @@ import pandas as pd
 import numpy as np
 from itertools import zip_longest
 from imblearn.combine import SMOTETomek
-from src.VAE import CustomModel, VAE, SVAE, VAErcp, VAErcp2, VAEdistance
+from src.VAE import CustomModel, VAE, SVAE, VAErcp, VAErcp2, VAEdistance, Vamprior, VampriorRcp, VampriorRcp2
 
 def callback(wdir):
     plateau = tf.keras.callbacks.ReduceLROnPlateau(verbose=1)
@@ -141,7 +141,7 @@ def test1():
                 
     cvh.crossvalidation()
 
-def testdata2(s1  = 120, s2 = 12, seed = 0):
+def testdata2(s1  = 1000, s2 = 5, seed = 0):
     np.random.seed(seed)
 
     center = np.random.uniform(-5, 5, [s1])
@@ -149,6 +149,24 @@ def testdata2(s1  = 120, s2 = 12, seed = 0):
     uni = np.random.uniform(-7,7,[s2,2])
     df0 = pd.DataFrame([center, norm]).T
     df0['class'] = 0
+    df1 = pd.DataFrame(uni)
+    df1['class'] = 1
+    df0 = df0.append(df1)
+    df0['class'] = df0['class'].astype('int32')
+    return df0.iloc[:,:-1], df0
+
+def testdata3(s1  = 1000, s2 = 5, seed = 0):
+    np.random.seed(seed)
+
+    center = np.random.uniform(-5, 5, [s1])
+    norm = np.random.normal(center, size = [s1])
+    uni = np.random.uniform(-7,7,[s2,2])
+    df0 = pd.DataFrame([center, norm]).T
+    df0['class'] = 0
+    draws = np.random.choice(range(s1), [s1//2], replace= False)
+    df0.iloc[draws, 0] += 8
+    draws = np.random.choice(range(s1), [s1//2], replace= False)
+    df0.iloc[draws, 0] -= 8
     df1 = pd.DataFrame(uni)
     df1['class'] = 1
     df0 = df0.append(df1)
@@ -169,6 +187,8 @@ def testpost2(model, results):
     else:
         results['y_inp'] = np.concatenate([results['y_inp'], np.squeeze(testin,-1).T])
     
+    logcontour(model, results, testin)
+
     pred = model.predict(testin)
 
     crunch_predictions(pred[-1], testout[-1], results)
@@ -287,7 +307,7 @@ def callback4(wdir):
     return [plateau, tb_callback, earlystop]
 
 def test4():
-    latent_size = 16
+    latent_size = 4
     CEweights = [[1,10],[1,1]]
     losses = [tf.losses.mean_absolute_error]*2
     ce = WCEHelper(CEweights)
@@ -309,15 +329,15 @@ def test4():
     'fc_size': [64,32,1]}
     {'encoder_input_size', 'fc_size', 'decoder_output_size', 'decoder_activation', 'latent_size'}
 
-    cvh = CVHelper(vaeArgs, testdata2, comp, '11', cvRuns = 5,
+    cvh = CVHelper(vaeArgs, testdata3, comp, '00', cvRuns = 1,
                 description = f'Model has 2 inputs, class 0 is where the second input is drawn from a normal distribution\
 with mean of the first input, class 1 is where it isnt. Proper implementation of SVAE with no outliers\
 \nlosses: {[l.__name__ for l in losses]}\nloss_weights: {loss_weights}\nCEweights: {CEweights}', 
                 epochs=500, 
-                k = 10, 
+                k = 4, 
                 seed = 0, 
                 verbose = 2, 
-                wdir = 'src/reports/test7',
+                wdir = 'src/reports/test10',
                 train_preprocessing = train_preprocessing4,
                 test_preprocessing = test_preprocessing4,
                 **kwargs)
@@ -364,18 +384,20 @@ def callback5(wdir):
     return [plateau, tb_callback, earlystop]
 
 def ignore(y_true, y_pred):
-    return 0
+    return 0.
 
 def testpost5(model, results):
     if results == {}:
         results.update({'acc':[], 'loss':[], 'cm':[], 'spec':[], 'y_pred': [], 'y_true': [], 'loglikelihood': [], 'alpha': [], 'y_inp': []})
-    testin, testout = testdata2(100, 100, seed = 40)
+    testin, testout = testdata3(100, 100, seed = 40)
     testin, testout = test_preprocessing2(testin, testout)
     if results['y_inp'] == []:
         results['y_inp'] = np.squeeze(testin,-1).T
     else:
         results['y_inp'] = np.concatenate([results['y_inp'], np.squeeze(testin,-1).T])
     
+    logcontour(model, results, testin)
+
     pred = model.predict(testin)
 
     highestalpha, highestf1 = bestalpha(testout[-1], pred[-1])
@@ -383,33 +405,46 @@ def testpost5(model, results):
 
     crunch_predictions(pred[-1], testout[-1], results, highestalpha)
 
+def logcontour(model, results, testin):
+    if 'contour_x' not in results:
+        countour_x = np.linspace(testin[0].min() - 1, testin[0].max() + 1, 20)
+        countour_y = np.linspace(testin[1].min() - 1, testin[1].max() + 1, 20)    
+        results['contour_x'], results['contour_y'] = np.meshgrid(countour_x, countour_y)
+        results['contour_z'] = []
+
+    x,y = results['contour_x'], results['contour_y']
+    x,y = np.reshape(x,[-1,1]), np.reshape(y,[-1,1])
+    
+    out = model.predict([x,y])[-1]
+    out = np.reshape(out, results['contour_x'].shape)
+    results['contour_z'].append(out)
+
 def test5():
     latent_size = 4
     cl5 = customloss5(latent_size)
     cl5.__name__ = 'cl5'
     CEweights = [[1,10],[1,1]]
     losses = [tf.losses.mean_absolute_error]*2
-    losses.insert(0, cl5)
-    losses.append(ignore)
-    loss_weights = [1,1,1,0] #meanvar, point1, point2, norm/epoch
+    losses.append(passon)
+    loss_weights = [1,1,10] #meanvar, point1, point2, norm/epoch
     comp = CompileHelper(losses, loss_weights)
     
 
-    kwargs = {'callbacks': callback5, 'model': VAErcp2, 
+    kwargs = {'callbacks': callback5, 'model': VAErcp, 
     'postresult': testresults2, 'postfold': testpost5}
     vaeArgs = {'inputsize':[[4,4],[8,8]],
     'inlayersize': [64, 32, 16],
     'latentsize': latent_size, 
     'outputsize':[[1,1]]}
 
-    cvh = CVHelper(vaeArgs, testdata2, comp, '04', cvRuns = 5,
+    cvh = CVHelper(vaeArgs, testdata3, comp, '03', cvRuns = 5,
                 description = f'Model has 2 inputs, class 0 is where the second input is drawn from a normal distribution with mean of the first input, class 1 is where it isnt. Proper implementation of VAE predicting distribution without best F1 using encoder\
 \nlosses: {[l.__name__ for l in losses]}\nloss_weights: {loss_weights}\nCEweights: {CEweights}', 
                 epochs=500, 
                 k = 10, 
                 seed = 0, 
                 verbose = 2, 
-                wdir = 'src/reports/test7',
+                wdir = 'src/reports/test10',
                 train_preprocessing = train_preprocessing5,
                 test_preprocessing = test_preprocessing5,
                 **kwargs)
@@ -418,8 +453,7 @@ def test5():
 
 def data_preprocessing5(trainin):
     lst = [np.expand_dims(trainin[x].to_numpy(),-1) for x in trainin.columns]
-    lst.insert(0, np.zeros([len(lst[0]),8]))
-    return lst[1:3], lst
+    return lst[0:2], lst
 
 def train_preprocessing5(trainin, trainout):
     preprocessing = SMOTETomek(n_jobs=-1)
@@ -438,7 +472,7 @@ def test_preprocessing5(testin, testout):
 def testpost6(model, results):
     if results == {}:
         results.update({'acc':[], 'loss':[], 'cm':[], 'spec':[], 'y_pred': [], 'y_true': [], 'loglikelihood': [], 'alpha': [], 'y_inp': []})
-    testin, testout = testdata2(100, 100, seed = 40)
+    testin, testout = testdata3(100, 100, seed = 40)
     testin, testout = test_preprocessing2(testin, testout)
     if results['y_inp'] == []:
         results['y_inp'] = np.squeeze(testin,-1).T
@@ -446,6 +480,7 @@ def testpost6(model, results):
         results['y_inp'] = np.concatenate([results['y_inp'], np.squeeze(testin,-1).T])
     
     pred = model.predict(testin)
+    logcontour(model, results, testin)
 
     highestalpha, highestf1 = bestalpha(testout[-1], pred[-1])
     results['alpha'].append(highestalpha)
@@ -468,19 +503,128 @@ def test6():
     'finalactivation':[None,None,None]}
     {'encoder_input_size', 'fc_size', 'decoder_output_size', 'decoder_activation', 'latent_size'}
 
-    cvh = CVHelper(vaeArgs, testdata2, comp, '06', cvRuns = 5,
+    cvh = CVHelper(vaeArgs, testdata3, comp, '02', cvRuns = 1,
                 description = f'Model has 2 inputs, class 0 is where the second input is drawn from a normal distribution with mean of the first input, class 1 is where it isnt. using distance as outlier metric with no ouliers\
                 \nlosses: {[l.__name__ for l in losses]}\nloss_weights: {loss_weights}\nCEweights: {CEweights}', 
                 epochs=500, 
-                k = 10, 
+                k = 4, 
                 seed = 0, 
                 verbose = 1, 
-                wdir = 'src/reports/test7',
+                wdir = 'src/reports/test10',
                 train_preprocessing = train_preprocessing2,
                 test_preprocessing = test_preprocessing2,
                 **kwargs)
                 
     cvh.crossvalidation()
+
+def passon(y_true, y_pred):
+    return y_pred
+
+def callback7(wdir):
+    plateau = tf.keras.callbacks.ReduceLROnPlateau(verbose=1)
+    tb_callback = tf.keras.callbacks.TensorBoard(log_dir=wdir)
+
+    earlystop = tf.keras.callbacks.EarlyStopping(
+    monitor='val_output_1_loss', min_delta=10e-7, patience=50, verbose=2,
+    mode='auto', baseline=None, restore_best_weights=True
+    )
+
+    return [plateau, tb_callback, earlystop]
+
+def test7():
+    CEweights = [[1,1],[1,1]]
+    losses = [tf.losses.mean_absolute_error]*2
+    losses.append(passon)
+    loss_weights = [1,1,5]
+    comp = CompileHelper(losses, loss_weights)
+
+    kwargs = {'callbacks': callback7, 'model': VampriorRcp2, 
+    'postresult': testresults2, 'postfold': testpost6}
+    vaeArgs = {'inputsize':[[4,4],[8,8]],
+    'inlayersize': [64, 32, 16],
+    'latentsize': 4, 
+    'outputsize':[[4,4], [1,1]]}
+    {'encoder_input_size', 'fc_size', 'decoder_output_size', 'decoder_activation', 'latent_size'}
+
+    cvh = CVHelper(vaeArgs, testdata3, comp, '99', cvRuns = 5,
+                description = f'Model has 2 inputs, class 0 is where the second input is drawn from a normal distribution with mean of the first input, class 1 is where it isnt. Vampprior trainign with outliers\
+                \nlosses: {[l.__name__ for l in losses]}\nloss_weights: {loss_weights}\nCEweights: {CEweights}', 
+                epochs=500, 
+                k = 10, 
+                seed = 0, 
+                verbose = 1, 
+                wdir = 'src/reports/test8',
+                train_preprocessing = train_preprocessing2,
+                test_preprocessing = test_preprocessing2,
+                **kwargs)
+                
+    cvh.crossvalidation()
+
+
+def data_preprocessing8(trainin):
+    lst = [np.expand_dims(trainin[x].to_numpy(),-1) for x in trainin.columns]
+    lst.insert(0, np.zeros([len(lst[0]),4]))
+    lst.insert(0, np.zeros([len(lst[0]),4]))
+    return lst[2:4], lst
+
+def train_preprocessing8(trainin, trainout):
+    preprocessing = SMOTETomek(n_jobs=-1)
+    try:
+        X,y = preprocessing.fit_resample(trainin, trainout.iloc[:,-1].astype('int32'))
+        X['class'] = y
+    except:
+        pass
+
+    return data_preprocessing8(trainout)
+
+def test_preprocessing8(testin, testout):
+    return data_preprocessing8(testout)
+
+def callback8(wdir):
+    plateau = tf.keras.callbacks.ReduceLROnPlateau(verbose=1)
+    tb_callback = tf.keras.callbacks.TensorBoard(log_dir=wdir)
+
+    earlystop = tf.keras.callbacks.EarlyStopping(
+    monitor='val_output_3_loss', min_delta=10e-7, patience=18, verbose=2,
+    mode='auto', baseline=None, restore_best_weights=True
+    )
+
+    return [plateau, tb_callback, earlystop]
+
+def test8():
+    latent_size = 4
+    cl5 = customloss5(latent_size)
+    cl5.__name__ = 'cl5'
+    CEweights = [[1,10],[1,1]]
+    losses = [tf.losses.mean_absolute_error]*2
+    losses.append(passon)
+    losses.insert(0, passon)
+    losses.insert(0, passon)
+    loss_weights = [1,1,1,1,10] #meanvar, point1, point2, norm/epoch
+    comp = CompileHelper(losses, loss_weights)
+    
+
+    kwargs = {'callbacks': callback8, 'model': VampriorRcp, 
+    'postresult': testresults2, 'postfold': testpost5}
+    vaeArgs = {'inputsize':[[4,4],[8,8]],
+    'inlayersize': [64, 32, 16],
+    'latentsize': latent_size, 
+    'outputsize':[[1,1]]}
+
+    cvh = CVHelper(vaeArgs, testdata3, comp, '104', cvRuns = 5,
+                description = f'Model has 2 inputs, class 0 is where the second input is drawn from a normal distribution with mean of the first input, class 1 is where it isnt. Proper implementation of VAE predicting distribution without best F1 using encoder\
+\nlosses: {[l.__name__ for l in losses]}\nloss_weights: {loss_weights}\nCEweights: {CEweights}', 
+                epochs=500, 
+                k = 10, 
+                seed = 0, 
+                verbose = 2, 
+                wdir = 'src/reports/test8',
+                train_preprocessing = train_preprocessing8,
+                test_preprocessing = test_preprocessing8,
+                **kwargs)
+                
+    cvh.crossvalidation()
+
 
 if __name__ == "__main__":
     #test1()
@@ -490,6 +634,8 @@ if __name__ == "__main__":
     #test4()
     test5()
     #test6()
+    #test7()
+    #test8()
     """ vaeArgs = {'inputsize':[[4,4],[8,8]],
     'inlayersize': [64, 32, 16],
     'latentsize': 2, 
