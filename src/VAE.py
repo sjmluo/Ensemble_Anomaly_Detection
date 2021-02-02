@@ -325,8 +325,6 @@ class VAErcp(CustomModel):
 
         self.inlayers = []
         self.outlayers = []
-        outputsize[-1].insert(0, latentsize)
-        outputsize[-1].insert(1, latentsize)
 
         for inputlayer in inputsize:
             self.inlayers.append([tf.keras.layers.Dense(size, activation = 'relu') for size in inputlayer])
@@ -347,6 +345,11 @@ class VAErcp(CustomModel):
         self.outlayersize = outlayersize
         self.outputsize = outputsize
         self.compile_fn = None
+        self.epsilon = 0.000001
+        self.log_sigma = [tf.keras.layers.Dense(x, name = 'log_sigma') for x in outputsize[-1]]
+        self.mu = [tf.keras.layers.Dense(x, name = 'mu') for x in outputsize[-1]]
+        self.sigma_prior = np.array([np.ones(x) for x in outputsize[-1]])
+        self.mu_prior = np.array([np.zeros(x) for x in outputsize[-1]])
 
     def reset_model(self):
         tf.keras.backend.clear_session()
@@ -380,56 +383,85 @@ class VAErcp(CustomModel):
         self.decoder = Decoder(self.outlayersize, self.outputsize)
         if self.compile_fn is not None: self._compile()
 
-    def call(self, inp):
-
+    def preEncStack(self, inp):
         for level in self.inlayers:
             inp = [layer(i) for layer, i in zip(level, inp)]
             
         inp = tf.concat(inp, -1)
-        means, logvar = self.encoder(inp)
+
+        return inp
+    
+    def latent(self, mean, var, logvar = False):
+        if logvar:
+            var = tf.exp(var)
+        return tf.random.normal([1], mean, var)
+    
+    def KL(self, mu, sigma, log_sigma):
+        kl = []
+        for i, x in enumerate(self.mu_prior):
+            log_sigma_prior = tf.cast(tf.math.log(tf.convert_to_tensor(self.sigma_prior[i]) + self.epsilon), tf.float32)
+            mu_diff = mu[i] - self.mu_prior[i]
+            kl.append(log_sigma_prior - log_sigma[i] - 1 + (sigma[i] + tf.math.square(mu_diff)) / self.sigma_prior[i])
+        kl = tf.reduce_sum(kl)
+        return kl
+
+    def call(self, inp):
+        inp = self.preEncStack(inp)
+        mean, logvar = self.encoder(inp)
         
-        var = tf.exp(0.5*logvar)
+        var = tf.exp(logvar)
         
-        norm = tf.random.normal([1], means, var)
+        norm = self.latent(mean, var)
 
-        output = self.call_decoder(norm)
-        out = [tf.concat([means, logvar, var, output[0], output[1]], axis = 1),  *output[2:], norm]
-        return out
+        decoder_out = self.decoder(norm)
+        output = self.outputStack(decoder_out)
+        mu = [m(decoder_out) for m in self.mu]
+        log_sigma = [s(decoder_out) for s in self.log_sigma]
+        sigma = [tf.math.exp(s) for s in log_sigma]
+        output.append(self.reconstruction_probability(inp, mean, var))
+        return output
+    
+    def reconstruction_probability(self, inp, mean, var, L = 50):
+        norm = self.latent(mean, var)
 
-    def call_decoder(self, norm):
-        output = self.decoder(norm)
+        decoder_out = self.decoder(norm)
+        mu = [m(decoder_out) for m in self.mu]
+        log_sigma = [s(decoder_out) for s in self.log_sigma]
+        sigma = [tf.math.exp(s) for s in log_sigma]
+        normal = tfp.distributions.Normal(mu, sigma)
+        probs = normal.prob(inp)
 
+        for l in range(1, L):
+            norm = self.latent(mean, var)
+
+            decoder_out = self.decoder(norm)
+            mu = [m(decoder_out) for m in self.mu]
+            log_sigma = [s(decoder_out) for s in self.log_sigma]
+            sigma = [tf.math.exp(s) for s in log_sigma]
+
+            normal = tfp.distributions.Normal(mu, sigma)
+            probs += normal.prob(inp)
+        probs = tf.reduce_mean(tf.boolean_mask(probs, tf.math.is_finite(probs)),axis = 0)
+        return [1 - (probs/L)]
+
+
+    def outputStack(self, output):
         if len(self.outlayers) > 0:
             output = [layer(output) for layer in self.outlayers[0]]
             for level in self.outlayers[1:]: # TODO: Get rid of for loops
                 output = [layer(i) for layer, i in zip(level, output)]
         return output
 
-
     def predict(self, inp, L = 50):
         """
         Reconstruction probability
         """
-        probs = np.zeros([len(inp)])
-        out = self.call(inp)
-        y_pred = out[0]
-        norm = out[3]
+        w = self.preEncStack(inp)
+        mean, logvar = self.encoder(w)
+        
+        var = tf.exp(logvar)
 
-        mu_post = y_pred[:, self.latentsize*3:self.latentsize*4]
-        var_post = y_pred[:, self.latentsize*4:self.latentsize*5]
-
-        normal = tfp.distributions.Normal(mu_post, var_post)
-        probs = normal.prob(norm)
-
-        for l in range(1, L):
-            out = self.call_decoder(norm)
-            mu_post = out[0]
-            var_post = out[1]
-
-            normal = tfp.distributions.Normal(mu_post, var_post)
-            probs += normal.prob(norm)
-        probs = np.nanmean(probs, axis = 1)
-        return [np.expand_dims( 1 - (probs/L), -1)]
+        return self.reconstruction_probability(inp, mean, var, L)
 
 
     def info(self):
@@ -665,3 +697,373 @@ class VAErcp3(VAEdistance):
             Size of layers of each output, determines final size of model output. Can be left empty
         """
         super(VAErcp3, self).__init__(inputsize, inlayersize, latentsize, outlayersize, outputsize, finalactivation)
+
+
+class Vamprior(CustomModel):
+    """
+    Vamprior https://arxiv.org/abs/1705.07120
+    """
+    def __init__(self, inputsize, inlayersize, latentsize, outlayersize = None, outputsize = None, pseudoinputs = 500, beta = 1.):
+        """
+        Parameters
+        ----------
+        inputsize : list
+            The sizes of the layers for each input before they enter the encoder/decoder. Can be left empty
+        inlayersize : list
+            The sizes of each layer of the encoder
+        latentsize : int
+            The size of the latent layer
+        outlayersize : list
+            The sizes of each layer of the decoder
+        outputsize : list
+            Size of layers of each output, determines final size of model output. Can be left empty
+        """
+        super(Vamprior, self).__init__()
+
+
+        if outlayersize == None:
+            outlayersize = list(reversed(inlayersize))
+
+        if outputsize == None:
+            outputsize = list(reversed(inputsize))
+
+
+        self.inlayers = []
+        self.outlayers = []
+
+        for inputlayer in inputsize:
+            self.inlayers.append([tf.keras.layers.Dense(size, activation = 'relu') for size in inputlayer])
+
+        for outputlayer in outputsize[:-1]:
+            self.outlayers.append([tf.keras.layers.Dense(size, activation = 'relu') for size in outputlayer])
+        
+        if len(outputsize) > 0:
+            self.outlayers.append([tf.keras.layers.Dense(size) for size in outputsize[-1]])
+
+        self.encoder = Encoder(inlayersize, latentsize)
+        self.decoder = Decoder(outlayersize, outputsize)
+
+        self.inputsize = inputsize
+        self.inputsize = inputsize
+        self.inlayersize = inlayersize
+        self.latentsize = latentsize
+        self.outlayersize = outlayersize
+        self.outputsize = outputsize
+        self.compile_fn = None
+        self.number_components = pseudoinputs
+        self.idle_input = tf.Variable(tf.eye(self.number_components), trainable = False)
+        self.means = tf.keras.layers.Dense(2, activation = 'tanh')
+        self.beta = beta
+    
+    def log_norm(self, z, zmean, zlogvar, dim, average=False):
+        log_normal = -0.5 * ( zlogvar + tf.square( z - zmean) / tf.exp( zlogvar ) )
+        if average:
+            return tf.math.reduce_mean( log_normal, dim )
+        else:
+            return tf.math.reduce_sum( log_normal, dim )
+
+            
+    def log_p_z(self, z):
+        C = float(self.number_components) # number of pseudo inputs
+        
+        X = self.means(self.idle_input) # get C amount of pseudo inputs
+        X = tf.reshape(X, [2,-1,1]) # reshape pseudo inputs to the same shape as the actual input
+        z_p_mean, z_p_logvar = self.encoder(self.encstack(X)) # grab the mean and logvar of the aggregated posterior (actual prior modeled by pseudo input)
+        
+        z_expand = tf.expand_dims(z, 1) # b x 1 x L
+        means = tf.expand_dims(z_p_mean, 0) # 1 x pseudo x L
+        logvars = tf.expand_dims(z_p_logvar, 0) # 1 x pseudo x L
+        a = self.log_norm(z_expand, means, logvars, dim=2) - tf.math.log(C) # b x pseudo
+        a_max = tf.math.reduce_max(a,1) # b
+        
+        log_prior = a_max + tf.math.log(tf.math.reduce_sum(tf.math.exp(a-tf.expand_dims(a_max, 1)),1)) # b
+        return log_prior
+
+    def calculate_loss(self, x, beta=10.):
+        x_out, z_mean, z_logvar = self.call(x)
+        # z_mean = b x L
+        # z_logvar = b x L
+        return self._calculate_loss(x, x_out, z_mean, z_logvar)
+    
+    def latent(self, means, logvar, var = False):
+        if not var:
+            var = tf.exp(0.5*logvar)
+        
+        norm = tf.random.normal([1], means, var)
+        return norm
+
+    def encstack(self, inp):
+        if isinstance(inp, tf.Tensor):
+            inp = tf.unstack(inp)
+        for level in self.inlayers:
+            inp = [layer(i) for layer, i in zip(level, inp)]
+            
+        inp = tf.concat(inp, -1)
+        return inp
+        
+
+    def call(self, inp):
+        inp = self.encstack(inp)
+        means, logvar = self.encoder(inp)
+
+        self._mu = means
+        self._logvar = logvar
+        self._var = tf.exp(0.5*logvar)
+        
+        norm = self.latent(means, logvar)
+
+        return self.decoderstack(norm, means, logvar)
+
+    def KL(self, z_mean, z_logvar):
+        z = self.latent(z_mean, z_logvar) # b x L
+        log_p_z = self.log_p_z(z) # b
+        log_q_z = self.log_norm(z, z_mean, z_logvar, dim=1) # b
+        print(log_p_z)
+        print(log_q_z)
+
+        KL = tf.math.reduce_sum(-(log_p_z - log_q_z))
+        print(KL)
+        return KL*self.beta
+
+    def predict(self, inp):
+        return [np.mean(np.square(np.asarray(inp) - np.asarray(self.call(inp)[:-1])), 0)]
+
+    def info(self):
+        VAEargs = ['inputsize', 'inlayersize', 'latentsize', 'outlayersize', 'outputsize']
+        res = {}
+        for arg in VAEargs:
+            res[arg] = self.__dict__[arg]
+        return res
+
+    def decoderstack(self, norm, means, logvar):
+        output = self.decoder(norm)
+
+        if len(self.outlayers) > 0:
+            output = [layer(output) for layer in self.outlayers[0]]
+            for level in self.outlayers[1:]: # TODO: Get rid of for loops
+                output = [layer(i) for layer, i in zip(level, output)]
+        output.append(self.KL(means, logvar))
+        return output
+
+    def reset_model(self):
+        tf.keras.backend.clear_session()
+        for l in self.inlayers:
+            for i in l:
+                del i
+            del l
+        for l in self.outlayers:
+            for i in l:
+                del i
+            del l
+
+        del self.encoder
+        del self.decoder
+        tf.keras.backend.clear_session()
+        gc.collect()
+        
+        self.inlayers = []
+        self.outlayers = []
+
+        for inputlayer in self.inputsize:
+            self.inlayers.append([tf.keras.layers.Dense(size, activation = 'relu') for size in inputlayer])
+
+        for outputlayer in self.outputsize[:-1]:
+            self.outlayers.append([tf.keras.layers.Dense(size, activation = 'relu') for size in outputlayer])
+        
+        if len(self.outputsize) > 0:
+            self.outlayers.append([tf.keras.layers.Dense(size) for size in self.outputsize[-1]])
+
+        self.encoder = Encoder(self.inlayersize, self.latentsize)
+        self.means = tf.keras.layers.Dense(2, activation = 'tanh')
+        self.decoder = Decoder(self.outlayersize, self.outputsize)
+        if self.compile_fn is not None: self._compile()
+
+class VampriorRcp2(Vamprior):
+    def __init__(self, **kwargs):
+        super(VampriorRcp2, self).__init__(**kwargs)
+
+    def predict(self, inp, L = 50):
+        """
+        Reconstruction probability
+        """
+        means, logvar, var, norm = self.callEncZ(inp)
+        out = self.decoderstack(norm, means, logvar)
+
+        normal = tfp.distributions.Normal(means, var)
+        probs = normal.prob(norm)
+        print("p1")
+        print(probs[0])
+
+        for l in range(1, L):
+            post = self.callEncZ(out[:2])
+            mu_post = post[0]
+            var_post = post[1]
+
+            normal = tfp.distributions.Normal(mu_post, var_post)
+            probs += normal.prob(norm)
+        probs = np.nanmean(probs, axis = 1)
+
+        return [np.expand_dims( 1 - (probs/L), -1)]
+
+    def callEncZ(self, inp):
+        for level in self.inlayers:
+            inp = [layer(i) for layer, i in zip(level, inp)]
+            
+        inp = tf.concat(inp, -1)
+        means, logvar = self.encoder(inp)
+        
+        var = tf.exp(0.5*logvar)
+        
+        norm = tf.random.normal([1], means, var)
+
+        return means, logvar, var, norm
+
+class VampriorRcp(Vamprior):
+    def __init__(self, inputsize, inlayersize, latentsize, outlayersize = None, outputsize = None):
+        
+        super().__init__(inputsize, inlayersize, latentsize, outlayersize, outputsize)
+        if outlayersize == None:
+            outlayersize = list(reversed(inlayersize))
+
+        if outputsize == None:
+            outputsize = list(reversed(inputsize))
+
+
+        self.inlayers = []
+        self.outlayers = []
+        outputsize[-1].insert(0, latentsize)
+        outputsize[-1].insert(1, latentsize)
+
+        for inputlayer in inputsize:
+            self.inlayers.append([tf.keras.layers.Dense(size, activation = 'relu') for size in inputlayer])
+
+        for outputlayer in outputsize[:-1]:
+            self.outlayers.append([tf.keras.layers.Dense(size, activation = 'relu') for size in outputlayer])
+        
+        if len(outputsize) > 0:
+            self.outlayers.append([tf.keras.layers.Dense(size) for size in outputsize[-1]])
+
+        self.encoder = Encoder(inlayersize, latentsize)
+        self.decoder = Decoder(outlayersize, outputsize)
+
+        self.inputsize = inputsize
+        self.inputsize = inputsize
+        self.inlayersize = inlayersize
+        self.latentsize = latentsize
+        self.outlayersize = outlayersize
+        self.outputsize = outputsize
+        self.compile_fn = None
+        self.epsilon = 0.000001
+        self.log_sigma = [tf.keras.layers.Dense(x, name = 'log_sigma') for x in outputsize[-1]]
+        self.mu = [tf.keras.layers.Dense(x, name = 'mu') for x in outputsize[-1]]
+        self.sigma_prior = np.array([np.ones(x) for x in outputsize[-1]])
+        self.mu_prior = np.array([np.zeros(x) for x in outputsize[-1]])
+
+    def reset_model(self):
+        tf.keras.backend.clear_session()
+        for l in self.inlayers:
+            for i in l:
+                del i
+            del l
+        for l in self.outlayers:
+            for i in l:
+                del i
+            del l
+
+        del self.encoder
+        del self.decoder
+        tf.keras.backend.clear_session()
+        gc.collect()
+        
+        self.inlayers = []
+        self.outlayers = []
+
+        for inputlayer in self.inputsize:
+            self.inlayers.append([tf.keras.layers.Dense(size, activation = 'relu') for size in inputlayer])
+
+        for outputlayer in self.outputsize[:-1]:
+            self.outlayers.append([tf.keras.layers.Dense(size, activation = 'relu') for size in outputlayer])
+        
+        if len(self.outputsize) > 0:
+            self.outlayers.append([tf.keras.layers.Dense(size) for size in self.outputsize[-1]])
+
+        self.encoder = Encoder(self.inlayersize, self.latentsize)
+        self.decoder = Decoder(self.outlayersize, self.outputsize)
+        self.means = tf.keras.layers.Dense(2, activation = 'tanh')
+        if self.compile_fn is not None: self._compile()
+
+    def call(self, inp):
+        inp = self.preEncStack(inp)
+        mean, logvar = self.encoder(inp)
+        
+        var = tf.exp(logvar)
+        
+        norm = self.latent(mean, var)
+
+        decoder_out = self.decoder(norm)
+        output = self.outputStack(decoder_out)
+        mu = [m(decoder_out) for m in self.mu]
+        log_sigma = [s(decoder_out) for s in self.log_sigma]
+        output.append(self.KL(mu, log_sigma))
+        return output
+        
+    def outputStack(self, norm):
+        output = self.decoder(norm)
+
+        if len(self.outlayers) > 0:
+            output = [layer(output) for layer in self.outlayers[0]]
+            for level in self.outlayers[1:]: # TODO: Get rid of for loops
+                output = [layer(i) for layer, i in zip(level, output)]
+        return output
+
+    def preEncStack(self, inp):
+        for level in self.inlayers:
+            inp = [layer(i) for layer, i in zip(level, inp)]
+            
+        inp = tf.concat(inp, -1)
+
+        return inp
+
+    def predict(self, inp, L = 50):
+        """
+        Reconstruction probability
+        """
+        w = self.preEncStack(inp)
+        mean, logvar = self.encoder(w)
+        
+        var = tf.exp(logvar)
+
+        norm = self.latent(mean, var)
+
+        decoder_out = self.decoder(norm)
+        mu = [m(decoder_out) for m in self.mu]
+        log_sigma = [s(decoder_out) for s in self.log_sigma]
+        sigma = [tf.math.exp(s) for s in log_sigma]
+        normal = tfp.distributions.Normal(mu, sigma)
+        probs = normal.prob(inp)
+
+        for l in range(1, L):
+            norm = self.latent(mean, var)
+
+            decoder_out = self.decoder(norm)
+            mu = [m(decoder_out) for m in self.mu]
+            log_sigma = [s(decoder_out) for s in self.log_sigma]
+            sigma = [tf.math.exp(s) for s in log_sigma]
+
+            normal = tfp.distributions.Normal(mu, sigma)
+            probs += normal.prob(inp)
+        probs = np.nanmean(probs, axis = 0)
+        return [1 - (probs/L)]
+
+    def info(self):
+        VAEargs = ['inputsize', 'inlayersize', 'latentsize', 'outlayersize', 'outputsize']
+        res = {}
+        for arg in VAEargs:
+            res[arg] = self.__dict__[arg]
+        return res
+
+    def addcompile(self, fn):
+        self.compile_fn = fn
+
+    def _compile(self):
+        self.compile_fn(self)
