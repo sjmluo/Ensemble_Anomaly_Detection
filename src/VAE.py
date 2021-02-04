@@ -11,15 +11,18 @@ class Encoder(tf.keras.layers.Layer):
         super(Encoder, self).__init__()
 
         self.mlp = [tf.keras.layers.Dense(layer,activation = 'relu') for layer in layersizes]
-        self.means = tf.keras.layers.Dense(latentsize)
-        self.logvar = tf.keras.layers.Dense(latentsize)
+        self._means = tf.keras.layers.Dense(latentsize)
+        self._logvar = tf.keras.layers.Dense(latentsize)
 
     def call(self, inp):
         x = inp
         for layer in self.mlp:
+            #print(f'encoder{x}')
             x = layer(x)
-        
-        return self.means(x), self.logvar(x)
+        #print(f'encoder{x}')
+        #print(f'encoder m{self._means(x)}')
+        #print(f'encoder v{self._logvar(x)}')
+        return self._means(x), self._logvar(x)
 
 class Decoder(tf.keras.layers.Layer):
     def __init__(self, layersizes, outputsize):
@@ -346,7 +349,7 @@ class VAErcp(CustomModel):
         self.outputsize = outputsize
         self.compile_fn = None
         self.epsilon = 0.000001
-        self.log_sigma = [tf.keras.layers.Dense(x, name = 'log_sigma') for x in outputsize[-1]]
+        self.log_sigma = [tf.keras.layers.Dense(x, name = 'log_sigma', activation = 'relu') for x in outputsize[-1]]
         self.mu = [tf.keras.layers.Dense(x, name = 'mu') for x in outputsize[-1]]
         self.sigma_prior = np.array([np.ones(x) for x in outputsize[-1]])
         self.mu_prior = np.array([np.zeros(x) for x in outputsize[-1]])
@@ -406,8 +409,8 @@ class VAErcp(CustomModel):
         return kl
 
     def call(self, inp):
-        inp = self.preEncStack(inp)
-        mean, logvar = self.encoder(inp)
+        w = self.preEncStack(inp)
+        mean, logvar = self.encoder(w)
         
         var = tf.exp(logvar)
         
@@ -415,13 +418,10 @@ class VAErcp(CustomModel):
 
         decoder_out = self.decoder(norm)
         output = self.outputStack(decoder_out)
-        mu = [m(decoder_out) for m in self.mu]
-        log_sigma = [s(decoder_out) for s in self.log_sigma]
-        sigma = [tf.math.exp(s) for s in log_sigma]
-        output.append(self.KL(mu, sigma, log_sigma))
+        output += self.reconstruction_probability(inp, mean, var, 10)
         return output
     
-    def reconstruction_probability(self, mean, var):
+    def reconstruction_probability(self, inp, mean, var, L = 50):
         norm = self.latent(mean, var)
 
         decoder_out = self.decoder(norm)
@@ -441,7 +441,7 @@ class VAErcp(CustomModel):
 
             normal = tfp.distributions.Normal(mu, sigma)
             probs += normal.prob(inp)
-        probs = np.nanmean(probs, axis = 0)
+        probs = tf.reduce_mean(probs, axis = 0)
         return [1 - (probs/L)]
 
 
@@ -461,7 +461,7 @@ class VAErcp(CustomModel):
         
         var = tf.exp(logvar)
 
-        return self.reconstruction_probability(mean, var)
+        return self.reconstruction_probability(inp, mean, var, L)
 
 
     def info(self):
@@ -744,7 +744,6 @@ class Vamprior(CustomModel):
         self.decoder = Decoder(outlayersize, outputsize)
 
         self.inputsize = inputsize
-        self.inputsize = inputsize
         self.inlayersize = inlayersize
         self.latentsize = latentsize
         self.outlayersize = outlayersize
@@ -785,8 +784,8 @@ class Vamprior(CustomModel):
         # z_logvar = b x L
         return self._calculate_loss(x, x_out, z_mean, z_logvar)
     
-    def latent(self, means, logvar, var = False):
-        if not var:
+    def latent(self, means, var, logvar = False):
+        if logvar:
             var = tf.exp(0.5*logvar)
         
         norm = tf.random.normal([1], means, var)
@@ -795,6 +794,7 @@ class Vamprior(CustomModel):
     def encstack(self, inp):
         if isinstance(inp, tf.Tensor):
             inp = tf.unstack(inp)
+        
         for level in self.inlayers:
             inp = [layer(i) for layer, i in zip(level, inp)]
             
@@ -808,23 +808,20 @@ class Vamprior(CustomModel):
 
         self._mu = means
         self._logvar = logvar
-        self._var = tf.exp(0.5*logvar)
+        var = tf.exp(0.5*logvar)
         
-        norm = self.latent(means, logvar)
+        norm = self.latent(means, var)
 
         return self.decoderstack(norm, means, logvar)
 
-    def KL(self, z_mean, z_logvar):
-        z = self.latent(z_mean, z_logvar) # b x L
-        log_p_z = self.log_p_z(z) # b
-        log_q_z = self.log_norm(z, z_mean, z_logvar, dim=1) # b
-        print(log_p_z)
-        print(log_q_z)
-
-        KL = tf.math.reduce_sum(-(log_p_z - log_q_z))
-        print(KL)
-        return KL*self.beta
-
+    def KL(self, mu, sigma, log_sigma):
+        kl = []
+        for i, x in enumerate(self.mu_prior):
+            log_sigma_prior = tf.cast(tf.math.log(tf.convert_to_tensor(self.sigma_prior[i]) + self.epsilon), tf.float32)
+            mu_diff = mu[i] - self.mu_prior[i]
+            kl.append(log_sigma_prior - log_sigma[i] - 1 + (sigma[i] + tf.math.square(mu_diff)) / self.sigma_prior[i])
+        kl = tf.reduce_sum(kl)
+        return kl
     def predict(self, inp):
         return [np.mean(np.square(np.asarray(inp) - np.asarray(self.call(inp)[:-1])), 0)]
 
@@ -842,7 +839,9 @@ class Vamprior(CustomModel):
             output = [layer(output) for layer in self.outlayers[0]]
             for level in self.outlayers[1:]: # TODO: Get rid of for loops
                 output = [layer(i) for layer, i in zip(level, output)]
-        output.append(self.KL(means, logvar))
+        
+        log_q_z = self.log_norm(norm, means, logvar, dim=1) # b
+        output.append(log_q_z - self.log_p_z(norm))
         return output
 
     def reset_model(self):
@@ -891,8 +890,6 @@ class VampriorRcp2(Vamprior):
 
         normal = tfp.distributions.Normal(means, var)
         probs = normal.prob(norm)
-        print("p1")
-        print(probs[0])
 
         for l in range(1, L):
             post = self.callEncZ(out[:2])
@@ -931,8 +928,6 @@ class VampriorRcp(Vamprior):
 
         self.inlayers = []
         self.outlayers = []
-        outputsize[-1].insert(0, latentsize)
-        outputsize[-1].insert(1, latentsize)
 
         for inputlayer in inputsize:
             self.inlayers.append([tf.keras.layers.Dense(size, activation = 'relu') for size in inputlayer])
@@ -954,8 +949,8 @@ class VampriorRcp(Vamprior):
         self.outputsize = outputsize
         self.compile_fn = None
         self.epsilon = 0.000001
-        self.log_sigma = [tf.keras.layers.Dense(x, name = 'log_sigma') for x in outputsize[-1]]
-        self.mu = [tf.keras.layers.Dense(x, name = 'mu') for x in outputsize[-1]]
+        self.log_sigma = [tf.keras.layers.Dense(x, name = 'log_sigma', activation = 'relu') for x in outputsize[-1]]
+        self.mu = [tf.keras.layers.Dense(x, name = 'mu', activation = 'relu') for x in outputsize[-1]]
         self.sigma_prior = np.array([np.ones(x) for x in outputsize[-1]])
         self.mu_prior = np.array([np.zeros(x) for x in outputsize[-1]])
 
@@ -990,22 +985,44 @@ class VampriorRcp(Vamprior):
         self.encoder = Encoder(self.inlayersize, self.latentsize)
         self.decoder = Decoder(self.outlayersize, self.outputsize)
         self.means = tf.keras.layers.Dense(2, activation = 'tanh')
+        self.log_sigma = [tf.keras.layers.Dense(x, name = 'log_sigma', activation = 'relu') for x in self.outputsize[-1]]
+        self.mu = [tf.keras.layers.Dense(x, name = 'mu') for x in self.outputsize[-1]]
         if self.compile_fn is not None: self._compile()
 
     def call(self, inp):
-        inp = self.preEncStack(inp)
-        mean, logvar = self.encoder(inp)
+        w = self.preEncStack(inp)
+        mean, logvar = self.encoder(w)
         
         var = tf.exp(logvar)
         
+        norm = self.latent(mean, var = var)
+
+        output = self.decoderstack(norm, mean, logvar)
+        output += self.reconstruction_probability(inp, mean, var, 10)# Rcp
+        return output
+    
+    def reconstruction_probability(self, inp, mean, var, L = 50):
         norm = self.latent(mean, var)
 
         decoder_out = self.decoder(norm)
-        output = self.outputStack(decoder_out)
         mu = [m(decoder_out) for m in self.mu]
         log_sigma = [s(decoder_out) for s in self.log_sigma]
-        output.append(self.KL(mu, log_sigma))
-        return output
+        sigma = [tf.math.exp(s) for s in log_sigma]
+        normal = tfp.distributions.Normal(mu, sigma)
+        probs = normal.prob(inp)
+
+        for l in range(1, L):
+            norm = self.latent(mean, var)
+
+            decoder_out = self.decoder(norm)
+            mu = [m(decoder_out) for m in self.mu]
+            log_sigma = [s(decoder_out) for s in self.log_sigma]
+            sigma = [tf.math.exp(s) for s in log_sigma]
+
+            normal = tfp.distributions.Normal(mu, sigma)
+            probs += normal.prob(inp)
+        probs = tf.reduce_mean(probs, axis = 0)
+        return [1 - (probs/L)]
         
     def outputStack(self, norm):
         output = self.decoder(norm)
@@ -1033,27 +1050,7 @@ class VampriorRcp(Vamprior):
         
         var = tf.exp(logvar)
 
-        norm = self.latent(mean, var)
-
-        decoder_out = self.decoder(norm)
-        mu = [m(decoder_out) for m in self.mu]
-        log_sigma = [s(decoder_out) for s in self.log_sigma]
-        sigma = [tf.math.exp(s) for s in log_sigma]
-        normal = tfp.distributions.Normal(mu, sigma)
-        probs = normal.prob(inp)
-
-        for l in range(1, L):
-            norm = self.latent(mean, var)
-
-            decoder_out = self.decoder(norm)
-            mu = [m(decoder_out) for m in self.mu]
-            log_sigma = [s(decoder_out) for s in self.log_sigma]
-            sigma = [tf.math.exp(s) for s in log_sigma]
-
-            normal = tfp.distributions.Normal(mu, sigma)
-            probs += normal.prob(inp)
-        probs = np.nanmean(probs, axis = 0)
-        return [1 - (probs/L)]
+        return self.reconstruction_probability(inp, mean, var, L)
 
     def info(self):
         VAEargs = ['inputsize', 'inlayersize', 'latentsize', 'outlayersize', 'outputsize']
