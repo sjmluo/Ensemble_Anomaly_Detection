@@ -410,8 +410,8 @@ def testpost5(model, results):
 
 def logcontour(model, results, testin):
     if 'contour_x' not in results:
-        countour_y = np.linspace(-50, 50, 1000)    
-        countour_x = np.linspace(-50, 50, 1000)
+        countour_y = np.linspace(-50, 50, 100)    
+        countour_x = np.linspace(-50, 50, 100)
         results['contour_x'], results['contour_y'] = np.meshgrid(countour_x, countour_y)
         results['contour_z'] = []
 
