@@ -58,10 +58,10 @@ def loadheatmap(locs):
             if k.startswith('run'):
                 x[l].append(save['results'][k]['post']['contour_x'])
                 y[l].append(save['results'][k]['post']['contour_y'])
-                z[l].append(save['results'][k]['post']['contour_z'])
+                z[l].append(np.mean(save['results'][k]['post']['contour_z'], 0))
         x[l] = np.mean(x[l],0)
         y[l] = np.mean(y[l],0)
-        z[l] = np.mean(z[l],0)
+        #print(z[l])
         z[l] = np.mean(z[l],0)
     
     return x,y,z
