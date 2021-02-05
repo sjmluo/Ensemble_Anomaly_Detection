@@ -290,8 +290,9 @@ def graph_data(data_reduced,labels,visualisation):
     Output('table', 'columns'),
     Output('table', 'data'),
     Input('data', 'children'),
-    Input('model', 'value'))
-def train_model(data,model):
+    Input('model', 'value'),
+    Input('visualisation', 'value'))
+def train_model(data,model,visualisation):
     data = json.loads(data)
     if isinstance(model,str):
         model = [model]
@@ -301,22 +302,23 @@ def train_model(data,model):
     for m in model:
         eva = EvaluationFramework(methods[m])
 
-        eva.fit(data['x_train'])
-        y_pred_train = eva.predict(data['x_train'])
+        eva.fit(np.array(data['x_train']))
+        y_pred_train = eva.predict(np.array(data['x_train']))
+        y_pred_test = eva.predict(np.array(data['x_test']))
 
-        y_pred_test = eva.predict(data['x_test'])
-
-        scores = eva.score(data['y_test'],y_pred_test)
+        scores = eva.score(np.array(data['y_test']),y_pred_test)
         scores['Model'] = m
         new_scores = pd.DataFrame([scores])
         df = df.append(new_scores,ignore_index=True)
-        x_grid,y_grid,z = eva.contour(data['x_train'])
+        model_results = {}
+        if visualisation == "pca":
+            x_grid,y_grid,_,z = eva.contour(np.array(data['x_train']))
 
-        model_results = {
-            'x_grid':x_grid.tolist(),
-            'y_grid': y_grid.tolist(),
-            'z': z.tolist()
-        }
+            model_results = {
+                'x_grid':x_grid.tolist(),
+                'y_grid': y_grid.tolist(),
+                'z': z[:,1].reshape((x_grid.shape[0],x_grid.shape[0])).tolist()
+            }
         labels = []
         for ele in y_pred_train:
             if ele == 1:

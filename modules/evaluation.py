@@ -77,33 +77,17 @@ class EvaluationFramework:
         x_reduced = reducer.fit_transform(x)
         x_min, y_min = x_reduced.min(0)
         x_max, y_max = x_reduced.max(0)
-        xcoords = np.linspace(1.25*x_min,1.25*x_max,50)
-        ycoords = np.linspace(1.25*y_min,1.25*y_max,50)
+        xcoords = np.linspace(x_min,x_max,50)
+        ycoords = np.linspace(y_min,y_max,50)
 
         x_grid = np.array([[i,j] for i in xcoords for j in ycoords])
 
         x_ = reducer.inverse_transform(x_grid)
         y_preds = self.model.predict_proba(x_)
-        return xcoords,ycoords,y_preds[:,1].reshape(50,50)
+        return xcoords,ycoords,x_grid,y_preds
 
     def heatmap(self, x, method='pca'):
-        # Dimension Reduction
-        if method == 'pca':
-            reducer = PCA(n_components=2)
-        elif method == 'umap':
-            reducer = UMAP()
-        else:
-            print('Failed to find method.')
-            return
-
-        # Grid Coordinates
-        reducer.fit(x)
-        x_reduced = reducer.fit_transform(x)
-        x_min, y_min = x_reduced.min(0)
-        x_max, y_max = x_reduced.max(0)
-        x_grid = np.array([[i,j] for i in np.linspace(x_min,x_max,100) for j in np.linspace(y_min,y_max,100)])
-        x_ = reducer.inverse_transform(x_grid)
-        y_preds = self.model.predict_proba(x_)
+        _,_,x_grid,y_preds = self.contour(x,method)
 
         # Heatmap
         plt.scatter(x_grid[:,0], x_grid[:,1], c=y_preds[:,1])
