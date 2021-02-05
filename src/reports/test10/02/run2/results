@@ -1,0 +1,37 @@
+Model has 2 inputs, class 0 is where the second input is drawn from a normal distribution with mean of the first input, class 1 is where it isnt. using distance as outlier metric with no ouliers                
+losses: ['mean_absolute_error', 'mean_absolute_error', 'ignore']
+loss_weights: [1, 1, 0]
+CEweights: [[1, 1], [1, 1]]
+Average accuracy: 1.0
+Balanced acc: nan
+Average specificity: 1.0
+Average sensitivity (Detection rate): nan
+Average loss: [0.08097389]
+Average False Alarm: nan
+Average F1: nan
+Average cm:
+||True 0| True 1|
+|-|-|-|
+|Predicted 0|100.0|0.0
+|Predicted 1|0.0|0.0
+
+|Acc|Spec|Loss|
+1.0|1.0|[0.08097389]
+CV took 719.254273014999 seconds
+Pure training took 715.7143150179991
+Test result on unseen data:
+Average accuracy: 0.8130000000000002
+Balanced acc: 0.8130000000000001
+Average specificity: 0.902
+Average sensitivity (Detection rate): 0.7240000000000001
+Average loss: nan
+Average False Alarm: 0.276
+Average F1: 0.7947310647639956
+Average cm:
+||True 0| True 1|
+|-|-|-|
+|Predicted 0|90.2|27.6
+|Predicted 1|9.8|72.4
+
+|Acc|Spec|Loss|
+0.8130000000000002|0.902|nan
