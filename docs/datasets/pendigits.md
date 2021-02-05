@@ -1,0 +1,3 @@
+The original pendigits (Pen-Based Recognition of Handwritten Digits) dataset from [UCI machine learning repository](https://archive.ics.uci.edu/ml/index.php) is a multiclass classification dataset having 16 integer attributes and 10 classes (0 … 9). The digit database is created by collecting 250 samples from 44 writers. The samples written by 30 writers are used for training, cross-validation and writer dependent testing, and the digits written by the other 14 are used for writer independent testing. In this dataset, all classes have equal frequencies. So the number of objects in one class (corresponding to the digit “0”) is reduced by a factor of 10%.
+
+Description from [Outlier Detection DataSets](http://odds.cs.stonybrook.edu/).

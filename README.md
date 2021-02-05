@@ -22,7 +22,7 @@ To download the datasets into a folder called `datasets`, run
 ```
 $ ./get_data.sh
 ```
-
+The description of the datasets is found at http://odds.cs.stonybrook.edu/
 
 ## Results
 

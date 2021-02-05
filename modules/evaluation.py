@@ -18,7 +18,7 @@ class EvaluationFramework:
     def predict(self, x):
         y_pred = self.model.predict(x)
         return y_pred
-    
+
     def predict_proba(self, x):
         y_pred = self.model.predict_proba(x)
         return y_pred
@@ -61,7 +61,31 @@ class EvaluationFramework:
         if method == 'pca':
             plt.ylabel('PCA2')
             plt.xlabel('PCA1')
-            
+
+    def contour(self,x,method="pca"):
+        # Dimension Reduction
+        if method == 'pca':
+            reducer = PCA(n_components=2)
+        elif method == 'umap':
+            reducer = UMAP()
+        else:
+            print('Failed to find method.')
+            return
+
+        # Grid Coordinates
+        reducer.fit(x)
+        x_reduced = reducer.fit_transform(x)
+        x_min, y_min = x_reduced.min(0)
+        x_max, y_max = x_reduced.max(0)
+        xcoords = np.linspace(1.25*x_min,1.25*x_max,50)
+        ycoords = np.linspace(1.25*y_min,1.25*y_max,50)
+
+        x_grid = np.array([[i,j] for i in xcoords for j in ycoords])
+
+        x_ = reducer.inverse_transform(x_grid)
+        y_preds = self.model.predict_proba(x_)
+        return xcoords,ycoords,y_preds[:,1].reshape(50,50)
+
     def heatmap(self, x, method='pca'):
         # Dimension Reduction
         if method == 'pca':
@@ -71,7 +95,7 @@ class EvaluationFramework:
         else:
             print('Failed to find method.')
             return
-        
+
         # Grid Coordinates
         reducer.fit(x)
         x_reduced = reducer.fit_transform(x)
@@ -80,14 +104,14 @@ class EvaluationFramework:
         x_grid = np.array([[i,j] for i in np.linspace(x_min,x_max,100) for j in np.linspace(y_min,y_max,100)])
         x_ = reducer.inverse_transform(x_grid)
         y_preds = self.model.predict_proba(x_)
-        
+
         # Heatmap
         plt.scatter(x_grid[:,0], x_grid[:,1], c=y_preds[:,1])
         cbar = plt.colorbar()
         cbar.ax.set_ylabel('Anomaly Likelihood', rotation=270)
         cbar.ax.get_yaxis().labelpad = 15
         plt.title(label=method.upper())
-        
+
     def pairplot(self, x, palette='RdBu'):
         df = pd.DataFrame(x)
         # Colorbar Setup
@@ -108,6 +132,3 @@ class EvaluationFramework:
         cbar_ax.set_ylabel('Anomaly Likelihood', rotation=270)
         cbar_ax.get_yaxis().labelpad = 15
         return g
-    
-    
-    

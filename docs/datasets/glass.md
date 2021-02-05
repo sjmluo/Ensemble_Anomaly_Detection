@@ -1,0 +1,3 @@
+The original glass identification dataset from [UCI machine learning repository](https://archive.ics.uci.edu/ml/index.php) is a classification dataset. The study of classification of types of glass was motivated by criminological investigation. At the scene of the crime, the glass left can be used as evidence, if correctly identified. This dataset contains attributes regarding several glass types (multi-class). Here, class 6 is a clear minority class, as such points of class 6 are marked as outliers, while all other points are inliers.
+
+Description from [Outlier Detection DataSets](http://odds.cs.stonybrook.edu/).
