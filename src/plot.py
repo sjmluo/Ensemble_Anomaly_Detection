@@ -80,8 +80,8 @@ def roc(locs, prefix = '', saveloc = './', showplot = True, bins = 1000):
         y_p = (y_p - y_p.min())/(y_p.max() - y_p.min())
         tprs = []
         fprs = []
-        for b in range(bins+1):
-            cm = confusionmat(y_p, y_t, conf = b/bins)
+        for b in np.unique(np.around(np.squeeze(y_p), 4)):
+            cm = confusionmat(y_p, y_t, conf = b)
             tpr = cm[1,1]/(cm[1,1] + cm[0,1])
             fpr = cm[1,0]/(cm[0,0] + cm[1,0])
             tprs.append(tpr)
