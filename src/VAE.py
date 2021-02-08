@@ -207,8 +207,8 @@ class SVAE(CustomModel):
         No checking of args are in place#TODO
         """
         super(SVAE, self).__init__()
-        self.inputsize = [16,32,64]
-        self.inlayersize = []
+        self.inputsize = []
+        self.inlayersize = [64, 32, 16]
         self.latentsize = 4
         self.fc_size = [64, 32, 1]
         allowed_kwargs = {'inputsize', 'inlayersize', 'latentsize', 'outlayersize', 'outputsize', 'fc_size', 'finalactivation'}
@@ -275,7 +275,17 @@ class SVAE(CustomModel):
         self.fc_layers = [tf.keras.layers.Dense(s, activation = 'relu') for s in self.fc_size[:-1]]
         self.fc_layers.append(tf.keras.layers.Dense(self.fc_size[-1], activation = 'sigmoid'))
         self.decoder = Decoder(self.outlayersize, self.outputsize)
+        self.inlayers = []
+        self.outlayers = []
 
+        for inputlayer in self.inputsize:
+            self.inlayers.append([tf.keras.layers.Dense(size, activation = 'relu') for size in inputlayer])
+
+        for outputlayer in self.outputsize[:-1]:
+            self.outlayers.append([tf.keras.layers.Dense(size, activation = 'relu') for size in outputlayer])
+
+        if len(self.outputsize) > 0:
+            self.outlayers.append([tf.keras.layers.Dense(size, activation = act) for size, act in zip(self.outputsize[-1], self.finalactivation)])
         if self.compile_fn is not None: self._compile()
 
     def addcompile(self, fn):
@@ -418,7 +428,7 @@ class VAErcp(CustomModel):
 
         decoder_out = self.decoder(norm)
         output = self.outputStack(decoder_out)
-        output += self.reconstruction_probability(inp, mean, var, 10)
+        output.append(self.reconstruction_probability(inp, mean, var, 10)[0])
         return output
     
     def reconstruction_probability(self, inp, mean, var, L = 50):
@@ -998,7 +1008,7 @@ class VampriorRcp(Vamprior):
         norm = self.latent(mean, var = var)
 
         output = self.decoderstack(norm, mean, logvar)
-        output += self.reconstruction_probability(inp, mean, var, 10)# Rcp
+        output.append(self.reconstruction_probability(inp, mean, var, 10)[0])# Rcp
         return output
     
     def reconstruction_probability(self, inp, mean, var, L = 50):
