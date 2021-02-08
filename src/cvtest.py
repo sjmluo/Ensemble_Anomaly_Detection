@@ -42,8 +42,8 @@ class CompileHelper:
         self.loss_weights = loss_weights
     
     def __call__(self, model):
-        optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
-        model.compile(optimizer, loss=self.losses, loss_weights=self.loss_weights, run_eagerly = True)
+        optimizer = tf.keras.optimizers.Adam(learning_rate=1e-2)
+        model.compile(optimizer, loss=self.losses, loss_weights=self.loss_weights, run_eagerly = False)
     
     def __eq__(self, other):
         return self.losses == other.losses and self.loss_weights == other.loss_weights
@@ -376,11 +376,11 @@ class customloss5:
         return tf.keras.losses.MSE(mu,mu_post) + tf.keras.losses.MSE(var, var_post)
 
 def callback5(wdir):
-    plateau = tf.keras.callbacks.ReduceLROnPlateau(verbose=1)
+    plateau = tf.keras.callbacks.ReduceLROnPlateau(verbose=1, patience=7)
     tb_callback = tf.keras.callbacks.TensorBoard(log_dir=wdir)
 
     earlystop = tf.keras.callbacks.EarlyStopping(
-    monitor='val_loss', min_delta=10e-7, patience=18, verbose=2,
+    monitor='val_loss', min_delta=10e-7, patience=25, verbose=2,
     mode='auto', baseline=None, restore_best_weights=True
     )
 
@@ -424,12 +424,10 @@ def logcontour(model, results, testin):
 
 def test5():
     latent_size = 4
-    cl5 = customloss5(latent_size)
-    cl5.__name__ = 'cl5'
     CEweights = [[1,10],[1,1]]
     losses = [tf.losses.mean_absolute_error]*2
     losses.append(passon)
-    loss_weights = [1,1,10] #meanvar, point1, point2, norm/epoch
+    loss_weights = [1,1,-10] #meanvar, point1, point2, norm/epoch
     comp = CompileHelper(losses, loss_weights)
     
 
@@ -438,7 +436,7 @@ def test5():
     vaeArgs = {'inputsize':[[4,4],[8,8]],
     'inlayersize': [64, 32, 16],
     'latentsize': latent_size, 
-    'outputsize':[[1,1]]}
+    'outputsize':[[4,4],[1,1]]}
 
     cvh = CVHelper(vaeArgs, testdata3, comp, '01', cvRuns = 5,
                 description = f'Model has 2 inputs, class 0 is where the second input is drawn from a normal distribution with mean of the first input, class 1 is where it isnt. Proper implementation of VAE predicting distribution without best F1 using encoder\
@@ -601,7 +599,7 @@ def test8():
     losses = [tf.losses.mean_absolute_error]*2
     losses.append(passon)
     losses.append(passon)
-    loss_weights = [1,1,5,10] #point1, point2, norm/epoch
+    loss_weights = [1,1,5,-10] #point1, point2, norm/epoch
     comp = CompileHelper(losses, loss_weights)
     
 
@@ -628,14 +626,14 @@ def test8():
 
 
 if __name__ == "__main__":
-    """ 
-    import matplotlib.pyplot as plt
+    """ import matplotlib.pyplot as plt
     
     inp, out = testdata3()
-    print(out['class'].to_numpy()==1)
     plt.plot(inp.iloc[out['class'].to_numpy()==0,0], inp.iloc[out['class'].to_numpy()==0,1], '.k', label = 'TN')
     plt.plot(inp.iloc[out['class'].to_numpy()==1,0], inp.iloc[out['class'].to_numpy()==1,1], 'xk', label = 'TP')
+    plt.savefig(f'wplot.png')
     plt.show()
+
     exit() """
 
     #test1()
