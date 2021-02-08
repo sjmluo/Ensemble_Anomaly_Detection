@@ -1,6 +1,0 @@
-Model type: Vamprior
-inputsize: ListWrapper([ListWrapper([4, 4]), ListWrapper([8, 8])])
-inlayersize: ListWrapper([64, 32, 16])
-latentsize: 4
-outlayersize: ListWrapper([16, 32, 64])
-outputsize: ListWrapper([ListWrapper([4, 4]), ListWrapper([1, 1])])
