@@ -178,7 +178,7 @@ class CVHelper:
                     'totalTime':0, 'trainingTime':0}
             results = self.results[f'run{i}']
 
-            if self.postfold is not None:
+            if self.postfold is not None and 'post' not in results:
                 results['post'] = {}
 
             results['totalTime'] += time.perf_counter() - start
