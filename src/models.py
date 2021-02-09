@@ -713,7 +713,7 @@ class Vamprior(CustomModel):
     """
     Vamprior https://arxiv.org/abs/1705.07120
     """
-    def __init__(self, inputsize, inlayersize, latentsize, outlayersize = None, outputsize = None, pseudoinputs = 500, beta = 1.):
+    def __init__(self, inputsize, inlayersize, latentsize, outlayersize = None, outputsize = None, pseudoinputs = 500, beta = 1., inputshape = [2, -1 , 1]):
         """
         Parameters
         ----------
@@ -761,8 +761,9 @@ class Vamprior(CustomModel):
         self.compile_fn = None
         self.number_components = pseudoinputs
         self.idle_input = tf.Variable(tf.eye(self.number_components), trainable = False)
-        self.means = tf.keras.layers.Dense(2, activation = 'tanh')
+        self.means = tf.keras.layers.Dense(np.abs(np.prod(inputshape)), activation = 'tanh')
         self.beta = beta
+        self.inputshape = inputshape
     
     def log_norm(self, z, zmean, zlogvar, dim, average=False):
         log_normal = -0.5 * ( zlogvar + tf.square( z - zmean) / tf.exp( zlogvar ) )
@@ -776,7 +777,7 @@ class Vamprior(CustomModel):
         C = float(self.number_components) # number of pseudo inputs
         
         X = self.means(self.idle_input) # get C amount of pseudo inputs
-        X = tf.reshape(X, [2,-1,1]) # reshape pseudo inputs to the same shape as the actual input
+        X = tf.reshape(X, self.inputshape) # reshape pseudo inputs to the same shape as the actual input
         z_p_mean, z_p_logvar = self.encoder(self.encstack(X)) # grab the mean and logvar of the aggregated posterior (actual prior modeled by pseudo input)
         
         z_expand = tf.expand_dims(z, 1) # b x 1 x L
