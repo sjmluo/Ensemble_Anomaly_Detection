@@ -116,7 +116,7 @@ class VAErcp(Model):
 
 
         self.model = self._model(inputsize = [], inlayersize = layersizes,
-             outputsize = [[x.shape[1]]],latentsize = 2)
+             outputsize = [[x.shape[1]]],latentsize = 4)
             
         ch(self.model)
 
@@ -176,14 +176,14 @@ class VAEvampprior(Model):
         inputshape.insert(0,1)
 
         self.model = self._model(inputsize = [], inlayersize = layersizes,
-             outputsize = [[x.shape[1]]],latentsize = 2, inputshape = inputshape)
+             outputsize = [[x.shape[1]]],latentsize = 4, inputshape = inputshape)
             
         ch(self.model)
 
         y = [x, np.zeros([x.shape[0], 1])]
 
 
-        self.model.fit(x, y, callbacks = self.callbacks(), 
+        self.model.fit([x], y, callbacks = self.callbacks(), 
         verbose = self.verbose, epochs = self.epochs)
     
     def callbacks(self):
