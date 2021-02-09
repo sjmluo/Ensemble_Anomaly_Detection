@@ -16,8 +16,12 @@ from os import listdir
 from os.path import isfile, join
 from scipy.io import loadmat
 from sklearn.model_selection import train_test_split
+from modules.src.VAE import ReconstructionVAE, VAErcp, VAEvampprior
 
 methods = {
+    'vae': ReconstructionVAE(),
+    'vaercp': VAErcp(),
+    'vamprior': VAEvampprior(),
     'iforest': IForest(),
     'knn': KNN(),
     'lof': LOF(),
