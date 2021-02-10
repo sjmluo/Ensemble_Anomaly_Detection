@@ -1,4 +1,4 @@
-import modules.src.models as models
+import modules.deep_learning.models as models
 import numpy as np
 import tensorflow as tf
 
@@ -43,7 +43,6 @@ class ReconstructionVAE(Model):
         self.epochs = 500
     
     def fit(self, x):
-        print('fit')
         layersizes = np.array([2**w for w in range(2,12)])
         layersizes = layersizes[layersizes < x.shape[1]]
 
@@ -77,8 +76,6 @@ class ReconstructionVAE(Model):
         return [plateau, earlystop]
     
     def predict_proba(self, x):
-        print('predict')
-        print(x.shape)
         y_pred = self.model.predict(x)[0]
         y_pred = np.mean(y_pred, 1)
         y_pred = np.squeeze(y_pred)
@@ -102,7 +99,6 @@ class VAErcp(Model):
         self.epochs = 500
     
     def fit(self, x):
-        print('fit')
         layersizes = np.array([2**w for w in range(2,12)])
         layersizes = layersizes[layersizes < x.shape[1]]
 
