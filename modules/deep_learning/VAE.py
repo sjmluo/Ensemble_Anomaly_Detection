@@ -2,6 +2,16 @@ import modules.deep_learning.models as models
 import numpy as np
 import tensorflow as tf
 
+
+def getlayersizes(x):
+    layersizes = np.array([2**w for w in range(2,12)])
+    layersizes = layersizes[layersizes < x.shape[1]]
+
+    if len(layersizes) > 5:
+        layersizes = layersizes[::2]
+
+    return reversed(layersizes)
+
 class Model:
     def fit(self, x):
         self.model = None
@@ -43,11 +53,7 @@ class ReconstructionVAE(Model):
         self.epochs = 500
     
     def fit(self, x):
-        layersizes = np.array([2**w for w in range(2,12)])
-        layersizes = layersizes[layersizes < x.shape[1]]
-
-        if len(layersizes) > 5:
-            layersizes = layersizes[::2]
+        layersizes = getlayersizes(x)
 
         losses = [tf.losses.mean_absolute_error]*2
         losses.append(ignore)
@@ -62,6 +68,7 @@ class ReconstructionVAE(Model):
 
         y = [x, np.zeros([x.shape[0], 1])]
 
+        print(f'trainable variables {self.model.weights}')
 
         self.model.fit(x, y, callbacks = self.callbacks(), 
         verbose = self.verbose, epochs = self.epochs)
@@ -99,11 +106,7 @@ class VAErcp(Model):
         self.epochs = 500
     
     def fit(self, x):
-        layersizes = np.array([2**w for w in range(2,12)])
-        layersizes = layersizes[layersizes < x.shape[1]]
-
-        if len(layersizes) > 5:
-            layersizes = layersizes[::2]
+        layersizes = getlayersizes(x)
 
         losses = [tf.losses.mean_absolute_error]*2
         losses.append(ignore)
@@ -155,12 +158,7 @@ class VAEvampprior(Model):
         self.epochs = 500
     
     def fit(self, x):
-        print('fit')
-        layersizes = np.array([2**w for w in range(2,12)])
-        layersizes = layersizes[layersizes < x.shape[1]]
-
-        if len(layersizes) > 5:
-            layersizes = layersizes[::2]
+        layersizes = getlayersizes(x)
 
         losses = [tf.losses.mean_absolute_error]*2
         losses.append(ignore)
