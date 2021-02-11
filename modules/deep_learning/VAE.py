@@ -10,7 +10,7 @@ def getlayersizes(x):
     if len(layersizes) > 5:
         layersizes = layersizes[::2]
 
-    return reversed(layersizes)
+    return list(reversed(layersizes))
 
 class Model:
     def fit(self, x):
