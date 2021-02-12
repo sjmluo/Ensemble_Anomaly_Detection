@@ -73,9 +73,6 @@ if __name__ == '__main__':
     sample_batch = tf.nest.map_structure(lambda x: x.numpy(),
                                         next(iter(preprocessed_example_dataset)))
 
-    print(sample_batch['y'])
-
-
     def model_fn(inputs, model):
         # We _must_ create a new model here, and _not_ capture it from an external
         # scope. TFF will call this within different graph contexts.
@@ -107,6 +104,7 @@ if __name__ == '__main__':
         state, metrics = iterative_process.next(state, federated_train_data)
         print('round {:2d}, metrics={}'.format(round_num, metrics))
     
+    # Copy weights to a 'normal' non tff model and predict
     model_for_inference = createVAE(sample_batch['x'], VAEdistance)
     model_for_inference(sample_batch['x'])
     state.model.assign_weights_to(model_for_inference)
