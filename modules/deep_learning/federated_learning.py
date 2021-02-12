@@ -51,8 +51,7 @@ if __name__ == '__main__':
     SHUFFLE_BUFFER = 100
     PREFETCH_BUFFER = 10
 
-    example_dataset = emnist_train.create_tf_dataset_for_client(
-    emnist_train.client_ids[0])
+    example_dataset = emnist_train.create_tf_dataset_for_client(emnist_train.client_ids[0])
 
     tf.random.set_seed(0)
 
@@ -107,3 +106,15 @@ if __name__ == '__main__':
     for round_num in range(2, NUM_ROUNDS):
         state, metrics = iterative_process.next(state, federated_train_data)
         print('round {:2d}, metrics={}'.format(round_num, metrics))
+    
+    model_for_inference = createVAE(sample_batch['x'], VAEdistance)
+    model_for_inference(sample_batch['x'])
+    state.model.assign_weights_to(model_for_inference)
+
+    test = emnist_train.create_tf_dataset_for_client(emnist_train.client_ids[400])
+    test = preprocess(test)
+    test = tf.nest.map_structure(lambda x: x.numpy(),
+                                        next(iter(test)))
+    predictions = np.mean(model_for_inference.predict(test['x'])[0],0)
+    print(test['x'].shape)
+    print(predictions)
