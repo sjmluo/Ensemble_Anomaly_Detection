@@ -1,3 +1,17 @@
+# Graph Framework 
+
+The following graph frameworks are for `static` and `bipartite` graphs and take a `networkx graph object` as input.
+These graphs can be labelled or unlabelled. 
+To compute scores/metrics for a particular method, labels are required.
+
+In order to label a node/edge, the appropriate node/edge in the `networkx graph object` must have a **label** attribute that is either **0** (normal) or **1** (anomalous). 
+
+Additionally, node/edge predictions based off the anomaly detection methods assign either **0** (normal) or **1** (anomalous) to the node/edge.
+
+For examples of usage, refer to the [notebooks](../notebooks).
+
+
+
 # Metrics
 
 `MetricCollection` can be used for benchmarking models.
