@@ -6,6 +6,10 @@ import gc
 import tensorflow_probability as tfp
 import numpy as np
 
+"""
+Implementation of VAEs, look at ../VAE.py for wrappers with fit, predict and predict_proba implemented
+"""
+
 class Encoder(tf.keras.layers.Layer):
     def __init__(self, layersizes, latentsize):
         super(Encoder, self).__init__()
@@ -664,6 +668,7 @@ class VAEdistance(VAE):
         super(VAEdistance, self).__init__(inputsize, inlayersize, latentsize, outlayersize, outputsize, finalactivation)
 
     def predict(self, inp):
+        print(np.asarray(self.call(inp)[:-1]).shape)
         return [np.mean(np.square(np.asarray(inp) - np.asarray(self.call(inp)[:-1])), 0)]
 
     def call(self, inp):
@@ -686,7 +691,7 @@ class VAEdistance(VAE):
         output.append(output[-1]) #As the model only reconstructs the point, we add filler data and ignore it, because the class is still needed in the testing set to calculate metrics/confusion matrix.
         return output
     
-
+    
 class VAErcp3(VAEdistance):
     """
     Old naming used for loading saves

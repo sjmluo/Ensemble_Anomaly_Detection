@@ -1,7 +1,10 @@
-import modules.deep_learning.models as models
+import modules.deep_learning.src.models as models
 import numpy as np
 import tensorflow as tf
 
+"""
+Wrappers for src.models to match fit, predict, predict_proba of other models
+"""
 
 def getlayersizes(x):
     layersizes = np.array([2**w for w in range(2,12)])

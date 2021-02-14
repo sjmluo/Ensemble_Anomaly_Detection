@@ -1,11 +1,10 @@
 import collections
-
 import numpy as np
 import tensorflow as tf
 import tensorflow_federated as tff
 from scipy.io import loadmat
 import matplotlib.pyplot as plt
-from models import VAEdistance
+from src.models import VAEdistance
 
 
 def make_federated_data(client_data, client_ids):
