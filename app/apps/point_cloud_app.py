@@ -148,20 +148,43 @@ layout =  dbc.Container([
         }),
     ]),
     html.Div([
-        #dcc.Graph(id='graph-with-slider'),
-        html.Div(id='output-graphs'),
+        dbc.Row([
+            dbc.Col(html.Div(id='output-graphs'),md=8),
+            dbc.Col(
+                dash_table.DataTable(
+                    id='data-table',
+                    style_table={
+                        'margin-bottom': '60px',
+                        'height': '400px',
+                        'overflowY': 'auto'
+                    },
+                    fixed_rows={'headers': True},
+                    page_action='none',
+                    filter_action='custom',
+                    filter_query=''
+                ),
+                md=4,
+                ),
+        ],
+        align="center"),
         # Hidden div inside the app that stores the intermediate value
         html.Div(id='data', style={'display': 'none'}),
         html.Div(id='data_reduced', style={'display': 'none'}),
         html.Div(id='labels', style={'display': 'none'}),
+        html.H4(
+            children="Performance Metrics",
+            style={
+                'margin-top': 10
+            }),
         dash_table.DataTable(
         id='table',
         style_table={
-            'margin-bottom': '60px'
-        }
+            'margin-bottom': '60px',
+        },
         ),
-        ]),
-        ])
+    ]),
+    dcc.Store(id='filtered-index'),
+])
 
 
 
@@ -219,17 +242,18 @@ def reduce_data(data,visualisation):
     Output('output-graphs', 'children'),
     Input('data_reduced', 'children'),
     Input('labels', 'children'),
-    Input('visualisation', 'value'))
-def graph_data(data_reduced,labels,visualisation):
+    Input('visualisation', 'value'),
+    Input('filtered-index', 'data'),)
+def graph_data(data_reduced,labels,visualisation,index):
 
-
+    index = index['index']
     data = json.loads(data_reduced)
     labels = json.loads(labels)
 
-    x_reduced = np.array(data["x_train_reduced"])
+    x_reduced = np.array(data["x_train_reduced"])[index]
     graphs = []
     for k in labels.keys():
-        label = np.array(labels[k]['labels'])
+        label = np.array(labels[k]['labels'])[index]
         fig = go.Figure()
         if visualisation == "pca":
             fig.add_trace(
@@ -291,7 +315,8 @@ def graph_data(data_reduced,labels,visualisation):
     Output('table', 'data'),
     Input('data', 'children'),
     Input('model', 'value'),
-    Input('visualisation', 'value'))
+    Input('visualisation', 'value'),
+    )
 def train_model(data,model,visualisation):
     data = json.loads(data)
     if isinstance(model,str):
@@ -331,6 +356,82 @@ def train_model(data,model,visualisation):
 
     df = df.round(2)
     return json.dumps(model_labels),columns,df.to_dict("records")
+
+@app.callback(
+    Output('data-table', 'columns'),
+    Input('data', 'children'),)
+def tabulate_data(data):
+    data = json.loads(data)
+    x_train = data['x_train']
+    df = pd.DataFrame(x_train,
+            columns=[f"feature-{i}" for i in range(len(x_train[0]))]).round(2)
+    columns = [{"name": f"Feat. {k}","id":f"feature-{k}",'type':'numeric'} for k in range(len(df.columns))]
+    return columns[:5]
+
+
+operators = [['ge ', '>='],
+             ['le ', '<='],
+             ['lt ', '<'],
+             ['gt ', '>'],
+             ['ne ', '!='],
+             ['eq ', '='],
+             ['contains '],
+             ['datestartswith ']]
+
+
+def split_filter_part(filter_part):
+    for operator_type in operators:
+        for operator in operator_type:
+            if operator in filter_part:
+                name_part, value_part = filter_part.split(operator, 1)
+                name = name_part[name_part.find('{') + 1: name_part.rfind('}')]
+
+                value_part = value_part.strip()
+                v0 = value_part[0]
+                if (v0 == value_part[-1] and v0 in ("'", '"', '`')):
+                    value = value_part[1: -1].replace('\\' + v0, v0)
+                else:
+                    try:
+                        value = float(value_part)
+                    except ValueError:
+                        value = value_part
+
+                # word operators need spaces after them in the filter string,
+                # but we don't want these later
+                return name, operator_type[0].strip(), value
+
+    return [None] * 3
+
+
+@app.callback(
+    Output('data-table', "data"),
+    Output('filtered-index', "data"),
+    Input('data', 'children'),
+    Input('data-table', "filter_query"),
+    )
+def update_table(data,filter):
+    data = json.loads(data)
+    x_train = data['x_train']
+    df = pd.DataFrame(x_train,
+            columns=[f"feature-{i}" for i in range(len(x_train[0]))]).round(2)
+    filtering_expressions = filter.split(' && ')
+    dff = df
+    for filter_part in filtering_expressions:
+        col_name, operator, filter_value = split_filter_part(filter_part)
+
+        if operator in ('eq', 'ne', 'lt', 'le', 'gt', 'ge'):
+            # these operators match pandas series operator method names
+            dff = dff.loc[getattr(dff[col_name], operator)(filter_value)]
+        elif operator == 'contains':
+            dff = dff.loc[dff[col_name].str.contains(filter_value)]
+        elif operator == 'datestartswith':
+            # this is a simplification of the front-end filtering logic,
+            # only works with complete fields in standard format
+            dff = dff.loc[dff[col_name].str.startswith(filter_value)]
+    index = {
+        'index': dff.index.values
+    }
+    return dff.to_dict('records'),index
 
 if __name__ == '__main__':
     app.run_server(debug=True)
