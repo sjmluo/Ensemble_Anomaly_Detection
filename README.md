@@ -24,6 +24,13 @@ $ ./get_data.sh
 ```
 The description of the datasets is found at http://odds.cs.stonybrook.edu/
 
+## Application
+To run the web application locally,
+```
+$ cd app
+$ python index.py
+```
+
 ## Results
 
 
