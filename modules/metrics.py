@@ -13,11 +13,19 @@ def false_alarm_rate(y_true, y_pred):
         return 0
     return float(FP/N)
 
+def recall(y_true, y_pred):
+    y_pred_binary = [1 if x > 0.5 else 0 for x in y_pred]
+    return recall_score(y_true, y_pred_binary)
+
+def f1(y_true, y_pred):
+    y_pred_binary = [1 if x > 0.5 else 0 for x in y_pred]
+    return f1_score(y_true, y_pred_binary)
+    
 metrics = {
     'ROC-AUC': roc_auc_score,
-    'Detection-Rate': recall_score,
+    'Detection-Rate': recall,
     'False-Alarm': false_alarm_rate,
-    'F1-Score': f1_score,
+    'F1-Score': f1,
     'Log-Likelihood': log_loss
 }
 
