@@ -22,13 +22,16 @@ from apps.point_cloud_app import display_description
 from navbar import Navbar
 from os.path import isfile, join
 
-with open(r"../datasets/twitter_worldcup_elements.pickle", "rb") as input_file:
-    elements = pickle.load(input_file)
+
 
 dataset_dropdown_choices = [
     {
         'label': "Twitter WorldCup 2014",
         'value': 'twitter_worldcup'
+    },
+    {
+        'label': "Yelp",
+        'value': 'yelpchi'
     },
 ]
 
@@ -48,7 +51,7 @@ controls = dbc.Card(
             [
                 dbc.Label("Dataset"),
                 dcc.Dropdown(
-                    id="dataset",
+                    id="graph_dataset",
                     options=dataset_dropdown_choices,
                     value=dataset_dropdown_choices[0]['value']
                 ),
@@ -131,10 +134,32 @@ layout = html.Div([
                     'label': "data(weight)",
                 }
             },
+
+            {
+                'selector': '[anomaly = 1]',
+                'style': {
+                    'background-color': 'red',
+                    'line-color': 'red'
+                }
+            },
         ],
-        elements=elements
+        #elements=elements
     )
 ])
+
+
+@app.callback(
+    Output('cytoscape-two-nodes', 'elements'),
+    Input('graph_dataset', 'value'),)
+def graph_dataset_description(graph_dataset):
+    if graph_dataset == 'twitter_worldcup':
+        pickle_file = 'twitter_worldcup_elements.pickle'
+    elif graph_dataset == 'yelpchi':
+        pickle_file = 'yelpchi.pickle'
+
+    with open(f"../datasets/{pickle_file}", "rb") as input_file:
+        elements = pickle.load(input_file)
+    return elements
 
 @app.callback(
     Output('graph-data-descript-heading', 'children'),

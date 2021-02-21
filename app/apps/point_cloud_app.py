@@ -134,6 +134,54 @@ data_description = dbc.Card(
     ]
 )
 
+performance_description = dbc.Card(
+    [
+        dbc.Container([
+            html.H4(
+                "Performance metrics",
+                id="performance-heading",
+                className="card-title",
+                style={
+                    'margin-top': 10
+                }),
+            html.P(
+                "The performance of the models is shown using five different scoring methods.",
+                id="performance-body",
+                className="card-text",
+                style={
+                    'margin-bottom': 10
+                }),
+    ])
+    ]
+)
+
+datatable_description = dbc.Card(
+    [
+        dbc.Container([
+            html.H4(
+                "Predictions",
+                id="datatable-heading",
+                className="card-title",
+                style={
+                    'margin-top': 10
+                }),
+            html.P(
+                "The true labels are shown along with the predictions by the selected models.",
+                className="card-text"),
+            html.P(
+                "These can be filtered and consequently plotted to analyse the possible important features for description.",
+                className="card-text",
+            ),
+            html.P(
+                "Try using filters like =, <=, >= .",
+                className="card-text",
+            )
+    ],
+    style={
+        'margin-bottom': 10
+    })
+    ])
+
 layout =  dbc.Container([
     Navbar("/point_cloud"),
     html.Div([
@@ -147,42 +195,45 @@ layout =  dbc.Container([
             'padding-top': 10
         }),
     ]),
-    html.Div([
-        dbc.Row([
-            dbc.Col(html.Div(id='output-graphs'),md=8),
-            dbc.Col(
-                dash_table.DataTable(
-                    id='data-table',
-                    style_table={
-                        'margin-bottom': '60px',
-                        'height': '400px',
-                        'overflowY': 'auto'
-                    },
-                    fixed_rows={'headers': True},
-                    page_action='none',
-                    filter_action='custom',
-                    filter_query=''
-                ),
-                md=4,
-                ),
-        ],
-        align="center"),
-        # Hidden div inside the app that stores the intermediate value
-        html.Div(id='data', style={'display': 'none'}),
-        html.Div(id='data_reduced', style={'display': 'none'}),
-        html.Div(id='labels', style={'display': 'none'}),
-        html.H4(
-            children="Performance Metrics",
-            style={
-                'margin-top': 10
-            }),
-        dash_table.DataTable(
-        id='table',
-        style_table={
-            'margin-bottom': '60px',
-        },
+    dbc.Row([
+        dbc.Col(performance_description,md=4),
+        dbc.Col(
+            dash_table.DataTable(
+                id='table',
+            ),
+            md=8
         ),
+    ],
+    style={
+        'margin-top': 10,
+        'margin-bottom': 20,
+    }),
+    dbc.Row([
+        dbc.Col(datatable_description,md=4),
+        dbc.Col(
+            dash_table.DataTable(
+                id='data-table',
+                style_table={
+                    'margin-bottom': '60px',
+                    'height': '300px',
+                    'overflowY': 'auto',
+                },
+                fixed_rows={'headers': True},
+                page_action='none',
+                filter_action='custom',
+                filter_query='',
+            ),
+            md=8,
+        )
     ]),
+    dbc.Row(id='output-graphs'
+        #dbc.Col(html.Div(id='output-graphs'),md=6),
+    ),
+    # Hidden div inside the app that stores the intermediate value
+    html.Div(id='data', style={'display': 'none'}),
+    html.Div(id='data_reduced', style={'display': 'none'}),
+    html.Div(id='labels', style={'display': 'none'}),
+
     dcc.Store(id='filtered-index'),
 ])
 
@@ -293,7 +344,7 @@ def graph_data(data_reduced,labels,visualisation,index):
         ))
 
         fig.update_layout(
-            legend_title="Class",
+            legend_title="Predicted Class",
             xaxis_title="",
             yaxis_title="",
             legend_x=0.01,
@@ -302,10 +353,12 @@ def graph_data(data_reduced,labels,visualisation,index):
         )
 
         graphs.append(
+            dbc.Col(
             dcc.Graph(
                 id=f'graph{k}',
                 figure=fig,
-            )
+            ),md=6
+        )
         )
     return graphs
 
@@ -357,16 +410,36 @@ def train_model(data,model,visualisation):
     df = df.round(2)
     return json.dumps(model_labels),columns,df.to_dict("records")
 
+
 @app.callback(
     Output('data-table', 'columns'),
-    Input('data', 'children'),)
-def tabulate_data(data):
+    Input('data', 'children'),
+    Input('labels', 'children'),)
+def tabulate_data(data,labels):
     data = json.loads(data)
+    labels = json.loads(labels)
     x_train = data['x_train']
     df = pd.DataFrame(x_train,
             columns=[f"feature-{i}" for i in range(len(x_train[0]))]).round(2)
-    columns = [{"name": f"Feat. {k}","id":f"feature-{k}",'type':'numeric'} for k in range(len(df.columns))]
-    return columns[:5]
+    df['y_train'] = ["Anomaly" if k == 1 else "Normal" for k in data["y_train"]]
+
+    columns = []
+    for k in range(len(df.columns)):
+        if 'y' not in df.columns[k]:
+            columns.append({"name": f"Feat. {k}","id":f"feature-{k}",'type':'numeric'})
+    columns = columns[:5]
+    columns.append({
+        "name": "True",
+        "id":'y_train',
+        'type':'text'
+    })
+    for ele in labels.keys():
+        columns.append({
+        "name": f"{ele.upper()} Pred.",
+        "id":f"{ele}_pred",
+        'type':'text'
+        })
+    return columns
 
 
 operators = [['ge ', '>='],
@@ -408,12 +481,18 @@ def split_filter_part(filter_part):
     Output('filtered-index', "data"),
     Input('data', 'children'),
     Input('data-table', "filter_query"),
+    Input('labels', 'children'),
     )
-def update_table(data,filter):
+def update_table(data,filter,labels):
     data = json.loads(data)
+    labels = json.loads(labels)
     x_train = data['x_train']
     df = pd.DataFrame(x_train,
             columns=[f"feature-{i}" for i in range(len(x_train[0]))]).round(2)
+    df['y_train'] = ["Anomaly" if k == 1 else "Normal" for k in data["y_train"]]
+
+    for ele in labels.keys():
+        df[f"{ele}_pred"] = labels[ele]['labels']
     filtering_expressions = filter.split(' && ')
     dff = df
     for filter_part in filtering_expressions:
