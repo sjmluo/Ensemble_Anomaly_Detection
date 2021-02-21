@@ -25,4 +25,5 @@ spartan2==0.1.1.post0
 statsmodels==0.12.1
 suod==0.0.5
 threadpoolctl==2.1.0
+tqdm==4.56.2 
 umap-learn==0.5.0
