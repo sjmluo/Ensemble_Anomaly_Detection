@@ -7,6 +7,9 @@ import spartan as st
 from .metrics import metrics, MetricCollection
 
 class BipartiteFramework:
+    '''
+        Framework for evaluating bipartite graph models found in bipartiteModels/models.py
+    '''
     def __init__(self, model, metrics=metrics):
         self.model = model
         self.metrics = MetricCollection(metrics)

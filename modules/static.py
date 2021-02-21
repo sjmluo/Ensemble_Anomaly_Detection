@@ -7,6 +7,9 @@ import spartan as st
 from .metrics import metrics, MetricCollection
 
 class StaticFramework:
+    '''
+        Framework for evaluating static graph models found in staticModels/models.py
+    '''
     def __init__(self, model, metrics=metrics):
         self.model = model
         self.metrics = MetricCollection(metrics)
@@ -70,6 +73,5 @@ class StaticFramework:
             G_ = G.subgraph(component)
             colour_map = ['red' if node in anomalous_nodes else 'blue' for node in component]
             nx.draw(G_, with_labels=True, node_color=colour_map)
-
-
+            
         return

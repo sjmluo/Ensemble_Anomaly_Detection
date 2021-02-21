@@ -1,4 +1,4 @@
-==combo==0.1.2
+combo==0.1.2
 Cython==0.29.21
 cycler==0.10.0
 joblib==1.0.0
