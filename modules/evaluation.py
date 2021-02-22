@@ -14,6 +14,9 @@ class EvaluationFramework:
 
     def fit(self, x):
         self.model.fit(x)
+    
+    def supervised_fit(self, x, y):
+        self.model.fit(x, y)
 
     def predict(self, x):
         y_pred = self.model.predict(x)
