@@ -17,8 +17,10 @@ from os.path import isfile, join
 from scipy.io import loadmat
 from sklearn.model_selection import train_test_split
 from modules.deep_learning.VAE import ReconstructionVAE, VAErcp, VAEvampprior
+from modules.deep_learning.ensemble import Ensemble
 
 methods = {
+    'ensemble': Ensemble(),
     'vae': ReconstructionVAE(),
     'vaercp': VAErcp(),
     'vamprior': VAEvampprior(),
@@ -52,7 +54,10 @@ def run():
         for key,model in methods.items():
             eva = EvaluationFramework(model)
 
-            eva.fit(X_train_norm)
+            if isinstance(model, Ensemble):
+                eva.supervised_fit(X_train_norm, y_train)
+            else:
+                eva.fit(X_train_norm)
             y_pred = eva.predict(X_test_norm)
             scores = eva.score(y_test,y_pred)
 
