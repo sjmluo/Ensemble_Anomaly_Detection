@@ -15,7 +15,10 @@ def getlayersizes(x):
 
     return list(reversed(layersizes))
 
-class Model:
+class Model(tf.keras.Model):
+    def __init__(self):
+        super(Model, self).__init__()
+
     def fit(self, x):
         self.model = None
         self.model.fit(x)
@@ -34,14 +37,20 @@ class Model:
         y_pred = self.model.predict_proba(x)
         return y_pred
 
+    def addEpochs(self, epochs):
+        self.epochs = epochs
+
+    def addVerbose(self, v):
+        self.verbose = v
+
 class CompileHelper:
     def __init__(self, losses, loss_weights):
         self.losses = losses
         self.loss_weights = loss_weights
     
     def __call__(self, model):
-        optimizer = tf.keras.optimizers.Adam(learning_rate=1e-2)
-        model.compile(optimizer, loss=self.losses, loss_weights=self.loss_weights, run_eagerly = False)
+        optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
+        model.compile(optimizer, loss=self.losses, loss_weights=self.loss_weights, run_eagerly = True)
     
     def __eq__(self, other):
         return self.losses == other.losses and self.loss_weights == other.loss_weights
@@ -51,6 +60,7 @@ def ignore(y_true, y_pred):
 
 class ReconstructionVAE(Model):
     def __init__(self):
+        super(ReconstructionVAE, self).__init__()
         self._model = models.VAEdistance
         self.verbose = 0
         self.epochs = 500
@@ -71,8 +81,6 @@ class ReconstructionVAE(Model):
 
         y = [x, np.zeros([x.shape[0], 1])]
 
-        print(f'trainable variables {self.model.weights}')
-
         self.model.fit(x, y, callbacks = self.callbacks(), 
         verbose = self.verbose, epochs = self.epochs)
     
@@ -91,11 +99,11 @@ class ReconstructionVAE(Model):
         y_pred = np.squeeze(y_pred)
         y_pred = (y_pred - y_pred.min())/(y_pred.max() - y_pred.min())
         class0 = 1-y_pred
-        return [class0, y_pred]
+        return np.stack([class0, y_pred], -1)
 
     def predict(self, x, threshold = 'auto'):
         y_pred = self.predict_proba(x)
-        y_pred = y_pred[-1]
+        y_pred = y_pred[:,-1]
         if threshold == 'auto':
             t_val = np.quantile(y_pred, 0.95)
         else:
@@ -104,6 +112,7 @@ class ReconstructionVAE(Model):
     
 class VAErcp(Model):
     def __init__(self):
+        super(VAErcp, self).__init__()
         self._model = models.VAErcp
         self.verbose = 0
         self.epochs = 500
@@ -143,11 +152,11 @@ class VAErcp(Model):
         y_pred = np.squeeze(y_pred)
         y_pred = (y_pred - y_pred.min())/(y_pred.max() - y_pred.min())
         class0 = 1-y_pred
-        return [class0, y_pred]
+        return np.stack([class0, y_pred], -1)
 
     def predict(self, x, threshold = 'auto'):
         y_pred = self.predict_proba(x)
-        y_pred = y_pred[-1]
+        y_pred = y_pred[:,-1]
         if threshold == 'auto':
             t_val = np.quantile(y_pred, 0.95)
         else:
@@ -156,6 +165,7 @@ class VAErcp(Model):
     
 class VAEvampprior(Model):
     def __init__(self):
+        super(VAEvampprior, self).__init__()
         self._model = models.Vamprior
         self.verbose = 0
         self.epochs = 500
@@ -198,11 +208,11 @@ class VAEvampprior(Model):
         y_pred = np.squeeze(y_pred)
         y_pred = (y_pred - y_pred.min())/(y_pred.max() - y_pred.min())
         class0 = 1-y_pred
-        return [class0, y_pred]
+        return np.stack([class0, y_pred], -1)
 
     def predict(self, x, threshold = 'auto'):
         y_pred = self.predict_proba(x)
-        y_pred = y_pred[-1]
+        y_pred = y_pred[:,-1]
         if threshold == 'auto':
             t_val = np.quantile(y_pred, 0.95)
         else:
