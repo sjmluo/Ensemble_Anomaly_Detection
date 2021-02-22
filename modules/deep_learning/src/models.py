@@ -668,7 +668,6 @@ class VAEdistance(VAE):
         super(VAEdistance, self).__init__(inputsize, inlayersize, latentsize, outlayersize, outputsize, finalactivation)
 
     def predict(self, inp):
-        print(np.asarray(self.call(inp)[:-1]).shape)
         return [np.mean(np.square(np.asarray(inp) - np.asarray(self.call(inp)[:-1])), 0)]
 
     def call(self, inp):
