@@ -9,7 +9,7 @@ import dash_core_components as dcc
 import dash_html_components as html
 import dash_table
 import plotly.express as px
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, ALL, MATCH,State
 import plotly.graph_objects as go
 
 
@@ -53,11 +53,56 @@ for file in onlyfiles[:11]:
     }
     dataset_dropdown_choices.append(choice)
 methods = {
-    'iforest': IForest(),
-    'knn': KNN(),
-    'lof': LOF(),
-    'pca': PCA(),
-    'ocsvm': OCSVM()
+    'iforest': {
+        'model':IForest,
+        'hyperparam':{
+            'name':'n_estimators',
+            'min': 50,
+            'max': 1000,
+            'default':100,
+            'stepsize':10,
+        }
+    },
+    'knn': {
+        'model': KNN,
+        'hyperparam':{
+            'name':'n_neighbors',
+            'min': 1,
+            'max': 50,
+            'default':5,
+            'stepsize':1,
+        }
+    },
+    'lof': {
+        'model':LOF,
+        'hyperparam':{
+            'name':'n_neighbors',
+            'min': 1,
+            'max': 50,
+            'default':20,
+            'stepsize':1,
+        }
+    },
+    'pca': {
+        'model':PCA,
+        'hyperparam':{
+            'name':'n_components',
+            'min': 1,
+            'max': 20,
+            'default':5,
+            'stepsize':1,
+        }
+    },
+    'ocsvm': {
+        'model': OCSVM,
+        'hyperparam':{
+            'name':'nu',
+            'min': 0,
+            'max': 1,
+            'default':0.5,
+            'stepsize':0.01,
+        }
+    }
 }
 
 model_dropdown = []
@@ -94,6 +139,13 @@ controls = dbc.Card(
                 ),
             ]
         ),
+        dbc.FormGroup(
+            [
+                html.Label('Hyperparameters'),
+                html.Div(id="hyperparameter-sliders")
+            ]
+        ),
+
         dbc.FormGroup(
             [
                 html.Label('Visualisation'),
@@ -226,15 +278,15 @@ layout =  dbc.Container([
             md=8,
         )
     ]),
-    dbc.Row(id='output-graphs'
+    dbc.Row(id='output-graphs'),
         #dbc.Col(html.Div(id='output-graphs'),md=6),
-    ),
     # Hidden div inside the app that stores the intermediate value
     html.Div(id='data', style={'display': 'none'}),
     html.Div(id='data_reduced', style={'display': 'none'}),
     html.Div(id='labels', style={'display': 'none'}),
 
     dcc.Store(id='filtered-index'),
+    dcc.Store(id='test'),
 ])
 
 
@@ -256,6 +308,67 @@ def display_description(dataset):
     Input('dataset', 'value'),)
 def point_cloud_description(*args,**kwargs):
     return display_description(*args,**kwargs)
+
+@app.callback(
+    Output('hyperparameter-sliders', 'children'),
+    Input('model', 'value'),
+    State({'type': 'slider', 'index': ALL}, 'value'))
+def create_hyperparameter_slider(model,value):
+    if isinstance(model,str):
+        model = [model]
+    items = []
+    if value:
+        value = list(value)
+        ## we've added a model, so add the current values and default
+        if len(value) < len(model):
+            for i in range(len(value),len(model)):
+                value.append(methods[model[i]]['hyperparam']['default'])
+    else:
+        value = [methods[ele]['hyperparam']['default'] for ele in model]
+    for i,ele in enumerate(model):
+        items.append(html.H6(ele.upper()))
+        row = dbc.Row([
+            dbc.Col(
+                html.P(methods[ele]['hyperparam']['name']),
+                md=4,
+            ),
+            dbc.Col(
+                dcc.Slider(
+                    min=methods[ele]['hyperparam']['min'],
+                    max=methods[ele]['hyperparam']['max'],
+                    value=value[i],
+                    step=methods[ele]['hyperparam']['stepsize'],
+                    tooltip={
+                        'always_visible':True,
+                        'placement':'right'
+                    },
+                    id={
+                    'type': 'slider',
+                    'index': i
+                    },
+                ),
+                md=8,
+                style={
+                    'margin-left': 0,
+                    'padding-left': 0,
+                    'padding-top': 10
+                }
+            ),
+
+        ],
+        align='center')
+        items.append(row)
+    return items
+
+@app.callback(
+    Output('test', 'children'),
+    Input({'type': 'slider', 'index': ALL}, 'value'),
+)
+def display_output(values):
+    print(list(values))
+    for (i,value) in enumerate(values):
+        print('Dropdown {} = {}'.format(i + 1, value))
+
 
 @app.callback(
     Output('data', 'children'),
@@ -369,16 +482,21 @@ def graph_data(data_reduced,labels,visualisation,index):
     Input('data', 'children'),
     Input('model', 'value'),
     Input('visualisation', 'value'),
-    )
-def train_model(data,model,visualisation):
+    Input({'type': 'slider', 'index': ALL}, 'value'),)
+def train_model(data,model,visualisation,hyperparam):
     data = json.loads(data)
     if isinstance(model,str):
         model = [model]
+    hyperparam = list(hyperparam)
     df = pd.DataFrame(columns=result_columns)
-
     model_labels = {}
-    for m in model:
-        eva = EvaluationFramework(methods[m])
+    for i,m in enumerate(model):
+        hyperparam_val = hyperparam[i]
+        hyper_dict = {
+            methods[m]['hyperparam']['name']:hyperparam_val
+        }
+        model_object = methods[m]['model'](**hyper_dict)
+        eva = EvaluationFramework(model_object)
 
         eva.fit(np.array(data['x_train']))
         y_pred_train = eva.predict(np.array(data['x_train']))

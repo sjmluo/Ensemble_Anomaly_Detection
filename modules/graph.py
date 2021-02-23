@@ -55,54 +55,6 @@ class OutlierLink(object):
         return np.logical_not(
             np.isclose(self.A,recon_A,atol=tolerance)))
 
-class EnsembleGraphOutlier(object):
-    """
-    Used for ensembling/combining predictions of the same class of model
-    ...
-
-    Attributes
-    ----------
-    models : a list of models used for ensembling
-
-    hyperparams : a list of dicts containing the hyperparameters for each model
-
-    """
-
-
-    def __init__(self,model,hyperparams):
-        """
-        Args:
-            model:
-                the base model for the ensemble
-            hyperparameter:
-                a list of dicts containing the hyperparameters for each model
-        """
-        self.models = []
-        for i in range(len(hyperparameters)):
-            model_object = model(**hyparapmeters[i])
-            self.models.append(model_object)
-        self.hyperparams = hyperparams
-
-    def fit(self,G):
-        """
-        Learn each of the models in the ensemble
-
-        Args:
-            G:
-             The graph, either networkx or adjacency matrix to train the model
-
-        Returns:
-            None
-        """
-        for ele in self.models:
-            ele.fit(G)
-
-    def predict(self,*args,**kwargs):
-        labels = []
-        for ele in self.models:
-            labels.append(ele.predict())
-
-
 def networkx_to_dash(G,filename=None):
     element_list = []
     for n in G:
