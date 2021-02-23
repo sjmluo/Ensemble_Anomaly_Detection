@@ -893,6 +893,9 @@ class Vamprior(CustomModel):
         if self.compile_fn is not None: self._compile()
 
 class VampriorRcp2(Vamprior):
+    """
+    Implementation combining Vampprior and Reconstruction probability (using encoder)
+    """
     def __init__(self, **kwargs):
         super(VampriorRcp2, self).__init__(**kwargs)
 
@@ -931,6 +934,9 @@ class VampriorRcp2(Vamprior):
         return means, logvar, var, norm
 
 class VampriorRcp(Vamprior):
+    """
+    Implementation combining Vampprior and Reconstruction probability (where decoder predicts mean/var for reconstruction probability)
+    """
     def __init__(self, inputsize, inlayersize, latentsize, outlayersize = None, outputsize = None):
         
         super().__init__(inputsize, inlayersize, latentsize, outlayersize, outputsize)
