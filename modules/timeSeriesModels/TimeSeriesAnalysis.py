@@ -142,7 +142,8 @@ class TensorDecomp:
 
         sum = 0
         for i in range(dist_mat.shape[0]):
-            sum += min(dist_mat[i, dist_mat[i,:] > 0]) # Non-trivial (off-diagonal distances)
+            sum += max(dist_mat[i, dist_mat[i,:] > 0]) # Non-trivial (off-diagonal distances)
+                                                       # Like a max spanning tree
 
         return sum/dist_mat.shape[0] # Mean
 
