@@ -23,6 +23,10 @@ from tslearn.barycenters import softdtw_barycenter, euclidean_barycenter
 # Sampling Tickery
 from scipy.interpolate import interp1d
 
+# For Tensor Decomp Error Calcs
+from sklearn.cluster import KMeans
+from scipy.spatial import distance_matrix
+
 
 
 
@@ -89,14 +93,60 @@ class TensorDecomp:
             # Sensor Space
             dim3_x = np.array([factors[2][i][0] for i in range(len(factors[2]))])
             dim3_y = np.array([factors[2][i][1] for i in range(len(factors[2]))])
-            # Modify for plotting clarity (add randomness for vertical separation)
+            # Modify for plotting clarity (i.e. add randomness for vertical separation)
             self.dim3_x = abs(np.power(dim3_x,-2))+np.random.rand()*2
             self.dim3_y = abs(np.power(dim3_y+np.random.rand(),-2))+np.random.rand()*5+3 
             
+        # N.B. this is not 'y' as in (X,y) for regression, but 'y' as in the second dimension
+        # of an (x,y) axis system
+        # the 'y' labels would be given by arr_y
         return [self.dim1_x,self.dim1_y] if self.num_dims==2 else [[self.dim1_x,self.dim1_y],
                                                                    [self.dim3_x,self.dim3_y]]
 
     
+    def predict(self):
+        """
+        N.B.
+        Literally nothing of use for our analysis 
+        (healthy and damage are TOO well separated).
+        Anyway a prediction over tensor decomposition 
+        is not the bases for our analysis, as we are 
+        interested in the "shape and form" aspects of a 
+        time-based analysis. Clearly, collapsing the time 
+        data, whilst OK for "anomaly detection" removes a lot
+        information --> e.g. from the plots it is evident
+        that tensor decomposition cannot adequately 
+        characterize types of damage (all points overlap)
+        and for low data regime (aircraft data), working with
+        three points is a silly thing to attempt in practice.
+        """
+        pass
+
+
+
+    def error(self):
+        """
+        Run k-Means clusterer and take largest pair-wise distance between centres.
+
+        Not really an "error", more of a "metric" indictor of separability.
+        """
+
+        if self.data_type == 'Building':
+            # 5 clusters for: Healty + Damage Levels 1 --> 4
+            centres = KMeans(n_clusters = 5).fit(np.array([self.dim1_x,self.dim1_y]).T).cluster_centers_
+        else:
+            # 3 clusters for: Take-off, Climb, Climb+Damage
+            centres = KMeans(n_clusters = 3).fit(np.array([self.dim1_x,self.dim1_y]).T).cluster_centers_
+
+        dist_mat = distance_matrix(centres, centres)
+
+        sum = 0
+        for i in range(dist_mat.shape[0]):
+            sum += min(dist_mat[i, dist_mat[i,:] > 0]) # Non-trivial (off-diagonal distances)
+
+        return sum/dist_mat.shape[0] # Mean
+
+
     
     def _collect_data(self):
         """
@@ -277,6 +327,7 @@ class MatrixProfile:
 
         self.data_path = data_path
         
+
         
     def fit(self, data_type, sensor_nums):
         """
@@ -292,14 +343,173 @@ class MatrixProfile:
         # Collect into dictionary
         if self.data_type == 'Building':
             self.m=940
-            self.reduc_factor=2
+            self.reduc_factor1=2 # Make building analysis slightly faster
         else:
             self.m=600
-            self.reduc_factor=1 # Reduction is too damaging for aircraft sensors
+            self.reduc_factor1=1 # Any reduction is too damaging for aircraft sensors
+
+
+        self.reduc_factor2 = 3 # This reduction is used when calculating barycentres (after M.P.)
+
+        # Run matrix profiler
         self.mp_dict = self._matrix_profile_sequence(self.np_seq_X, 
                                                      m=self.m, 
-                                                     reduc_factor=self.reduc_factor)
+                                                     reduc_factor=self.reduc_factor1)
  
+
+        ##### Important variables for plotting #####
+        # Collect relevant values for plotting
+        self.sensor_listX = []
+
+        # Motifs require (x,y) location for plotting
+        self.motif_listX = []
+        self.motif_listy = []
+        motif_flag = True # Activate once (only one motif is enough for now)
+
+        self.mp_list = []
+        self.cac_list = []
+        self.mp_bary_list = []
+        self.cac_bary_list = []
+        #############################################
+
+
+        # These lists are temp lists used to help calculate barycentre -- don't worry about storing them
+        mp_list_calc = []
+        cac_list_calc = []
+        weight_list_calc = [] # Used for barycentre calc. only ---> Apply weights to important sensors 
+
+        for sensor in self.mp_dict:
+            # Collecting Data
+            sensor_X = self.mp_dict[sensor][3]
+            self.sensor_listX.append(sensor_X)
+
+            sensor_mp = self._moving_average(self.mp_dict[sensor][0],20) # Smoothed
+            self.mp_list.append(sensor_mp)
+            sensor_cac = self._moving_average(self.mp_dict[sensor][2],30) # Smoothed
+            self.cac_list.append(abs(1-sensor_cac))
+
+            # Collecting a Motif Structure
+            if motif_flag:
+                # Pick a random motif
+                num = np.random.choice(len(self.mp_dict[sensor][1]))
+                sensor_chain_val = self.mp_dict[sensor][1][num]
+                
+                sensor_motif = sensor_X[sensor_chain_val:sensor_chain_val+self.m]
+                X_motif = np.arange(sensor_chain_val,sensor_chain_val+self.m)
+                self.motif_listX.append(X_motif)
+                self.motif_listy.append(sensor_motif)
+                motif_flag = False # Only one motif OK to plot (for now)
+
+
+            ### For Barycentre calcs ONLY ###
+            mp_list_calc.append(sensor_mp[::self.reduc_factor2])
+            cac_list_calc.append(sensor_cac[::self.reduc_factor2])
+            if self.data_type == 'Building':
+                # Weights for Euclidean Barycentre ('fancy weighted average')
+                if sensor[-1] in ('1','2','3','4','5','6','7','8'):
+                    weight_list_calc.append(50)
+                elif sensor[-1] in ('9','10','11','12','13','14','15','16'):
+                     weight_list_calc.append(25)
+                else:
+                    weight_list_calc.append(5)
+            else: # Aircraft
+                if sensor[-1] in ('1','2'):
+                    weight_list_calc.append(50)
+                elif sensor[-1] in ('4','5'):
+                    weight_list_calc.append(10)
+                else:
+                    weight_list_calc.append(200)
+            ############################################
+
+
+            
+
+        # Calculating Barycentres ...
+        bary_mp = euclidean_barycenter(np.vstack(mp_list_calc), weights=weight_list_calc)
+        Xs, f_mp = self._sampler(bary_mp.flatten())
+        Xs_upscale = np.linspace(0,len(Xs)-1,len(sensor_mp))
+        self.mp_bary_list.append(f_mp(Xs_upscale))
+
+        bary_cac = euclidean_barycenter(np.vstack(cac_list_calc), weights=weight_list_calc)
+        Xs, f_cac = self._sampler(bary_cac.flatten())
+        Xs_upscale = np.linspace(0,len(Xs)-1,len(sensor_mp))
+        self.cac_bary_list.append(self._moving_average(abs(1-f_cac(Xs_upscale)),100))
+
+
+
+    def predict(self, min_size = 2000):
+        if self.data_type == 'Building':
+            pass   # min_size = 2000 --> good default for building dataset
+        else:
+            min_size = 500 # min_size = 2000 --> good default for building dataset
+
+
+        self.chg_pt_analysis_mp = rpt.KernelCPD(kernel="linear", 
+                                                min_size=min_size).fit(self.mp_bary_list[0])
+
+        self.chg_pt_analysis_cac = rpt.KernelCPD(kernel="linear", 
+                                                min_size=min_size).fit(self.cac_bary_list[0])
+
+        if self.data_type == 'Building':
+            # Matrix Profile Prediction
+            self.chg_pts_mp = np.array(self.chg_pt_analysis_mp.predict(n_bkps=5))
+            self.out_mp = self.chg_pts_mp[self.chg_pts_mp > 2000][:-1]
+            # Semantic Segmentor Predictin
+            self.chg_pts_cac = np.array(self.chg_pt_analysis_cac.predict(n_bkps=5))
+            self.out_cac = self.chg_pts_cac[self.chg_pts_cac > 2000][:-1]
+        else: # Aircraft
+            # Matrix Profile Prediction
+            self.chg_pts_mp = np.array(self.chg_pt_analysis_mp.predict(n_bkps=2))
+            self.out_mp = self.chg_pts_mp[self.chg_pts_mp > 500][:-1]
+            # Semantic Segmentor Predictin
+            self.chg_pts_cac = np.array(self.chg_pt_analysis_cac.predict(n_bkps=2))
+            self.out_cac = self.chg_pts_cac[self.chg_pts_cac > 500][:-1]
+
+
+        self.predict_flag = True  # We have done a prediction
+        return [self.out_mp, self.out_cac]
+
+
+
+        
+    def error(self):
+        pred_vec1 = self.out_mp
+        pred_vec2 = self.out_cac
+
+        if self.data_type == 'Building':
+            reference_vec = np.array([5170, 7170, 9170, 11170]) # Locations of damage
+            error = self._calc_difference(reference_vec, pred_vec1, pred_vec2)
+            return error 
+        else:
+            reference_vec = np.array([2000,4000]) # Locations of damage
+            error = self._calc_difference(reference_vec, pred_vec1, pred_vec2)
+            return error 
+
+
+
+    def _calc_difference(self, true_vec, pred1, pred2):
+        """
+        Note that all vector lengths do not need to be the same. 
+        Therefore straight-forward L2 norm not general enough. 
+
+        Soln: Iterate through pred1 / pred2 and find nearest points true_vec
+
+        Need two loops because len(pred_vec1) not always = len(pred_vec2)
+        """
+        sum1 = 0
+        for num in pred1:
+            sum1+= min([(num-true_vec[i])**2 for i in range(len(true_vec))])
+
+        sum2 = 0
+        for num in pred2:
+            sum2+= min([(num-true_vec[i])**2 for i in range(len(true_vec))])
+
+        return (sum1+sum2)/2
+
+
+
+
+
 
     def plot(self):
     
@@ -309,76 +519,33 @@ class MatrixProfile:
         fig, axs = plt.subplots(4, sharex=True, gridspec_kw={'hspace':0.4},
                                figsize=(20,15))
 
-        reduc_factor = 3 # Different than in _matrix_profile_sequence
-        motif_list = []
-        mp_list = []
-        cac_list = []
-        f_list = []
-        motif_flag = True
-        weight_list = []
-        
-        for sensor in self.mp_dict:
-            # Collecting Dict Structures
-            sensor_X = self.mp_dict[sensor][3]
-            # Pick a random motif
-            num = np.random.choice(len(self.mp_dict[sensor][1]))
-            sensor_chain_val = self.mp_dict[sensor][1][num]
+
+        # Plotting Motif (one element list)
+        axs[0].plot(self.motif_listX[0], self.motif_listy[0],'b', linewidth=4) 
+        axs[0].axis('off')
+        axs[0].annotate('Significant Motif', 
+                       (self.motif_listX[0][-1]+0.1*self.m, self.motif_listy[0].mean()))
+
+        # Plotting Sensor data (mult-element lists)
+        for i in range(len(self.mp_dict)):
             
-            sensor_motif = sensor_X[sensor_chain_val:sensor_chain_val+self.m]
-            sensor_mp = self._moving_average(self.mp_dict[sensor][0],20) # Smoothed
-            sensor_cac = self._moving_average(self.mp_dict[sensor][2],30) # Smoothed
-
-            # Collecting Motif Structures
-            if motif_flag:
-                X_motif = np.arange(sensor_chain_val,sensor_chain_val+self.m)
-                axs[0].plot(X_motif, sensor_motif,'b',linewidth=4) 
-                axs[0].axis('off')
-                axs[0].annotate('Significant Motif', (sensor_chain_val+self.m*1.1,
-                                                      sensor_motif.mean()))
-                motif_flag = False # Only one motif OK to plot (for now)
-
-            # Plotting Raw Signals
-            axs[1].plot(sensor_X,'k',alpha=0.4)
+            axs[1].plot(self.sensor_listX[i],'k',alpha=0.4)
 
             # Plotting Matrix Profiles
-            axs[2].plot(sensor_mp,'k',alpha=0.4)
+            axs[2].plot(self.mp_list[i],'k',alpha=0.4)
 
             # Plotting Semantic Segmenter
-            axs[3].plot(abs(1-sensor_cac),'k',alpha=0.4)
+            axs[3].plot(self.cac_list[i],'k',alpha=0.4)
 
-            motif_list.append(sensor_motif[::reduc_factor])
-            mp_list.append(sensor_mp[::reduc_factor])
-            cac_list.append(sensor_cac[::reduc_factor])
+        # Plotting Barycentre 1 (one element list)
+        axs[2].plot(self.mp_bary_list[0],'r', linewidth=3)
 
-            if self.data_type == 'Building':
-                # Weights for Euclidean Barycentre ('fancy weighted average')
-                if sensor[-1] in ('1','2','3','4','5','6','7','8'):
-                    weight_list.append(50)
-                elif sensor[-1] in ('9','10','11','12','13','14','15','16'):
-                     weight_list.append(25)
-                else:
-                    weight_list.append(5)
-            else: # Aircraft
-                if sensor[-1] in ('1','2'):
-                    weight_list.append(50)
-                elif sensor[-1] in ('4','5'):
-                    weight_list.append(10)
-                else:
-                    weight_list.append(200)
+        # Plotting Barycentre 2 (one element list)
+        axs[3].plot(self._moving_average(self.cac_bary_list[0], 100),'r', linewidth=3)
 
 
-        # Under-sampling (speeding up things)
-        bary_mp = euclidean_barycenter(np.vstack(mp_list), weights=weight_list)
-        Xs, f_mp = self._sampler(bary_mp.flatten())
-        Xs_upscale = np.linspace(0,len(Xs)-1,len(sensor_mp))
-        axs[2].plot(f_mp(Xs_upscale),'r', linewidth=3)
-
-        bary_cac = euclidean_barycenter(np.vstack(cac_list), weights=weight_list)
-        Xs, f_cac = self._sampler(bary_cac.flatten())
-        Xs_upscale = np.linspace(0,len(Xs)-1,len(sensor_mp))
-        axs[3].plot(self._moving_average(abs(1-f_cac(Xs_upscale)),100),'r', linewidth=3)
-
-
+        # Making pretty ... 
+        # Annotating ground truth of when damage / phases are
         if self.data_type == 'Building':
             # Personal Note: 13*470-940 = 5170
             rect = Rectangle((5170,1), 2000, 6, facecolor='darksalmon')
@@ -418,8 +585,19 @@ class MatrixProfile:
             axs[3].set_title('Semantic Segmenter')
             axs[3].set_xlabel('Signal Counts')
             
-            
-    
+
+        if self.predict_flag:
+            if self.data_type == 'Building':
+                axs[2].vlines(self.out_mp, 5,20, color='b', linestyle='dashed',
+                              linewidth=4, label='Change Points' )
+            else:
+              axs[2].vlines(self.out_mp, 0, 12, color='b', linestyle='dashed',
+                            linewidth=4, label='Change Points' )  
+
+
+            axs[3].vlines(self.out_cac, 0,1, color='b', linestyle='dashed',
+                          linewidth=4, label='Change Points' )
+
     
     def _matrix_profile_sequence(self, np_seq_X, m, reduc_factor=2):
         """
@@ -549,215 +727,6 @@ class MatrixProfile:
 
 
 
-
-
-
-
-
-
-
-
-
-
-class ChangePoint:
-    
-    def __init__(self):
-        """
-        User not specify anything here. 
-        Keep 'min_size', and 'n_bkps' hidden.
-        """   
-        
-        
-    def fit(self,data_type, sensor_nums):
-        """
-        Perform a change point analysis on sequence
-        """
-        self.data_type = data_type
-        self.sensor_nums = sensor_nums
-        
-        # np.array of [sensors x signal length]
-        self.np_seq_X = self._collect_data()
-        
-        # Extract change points
-        if data_type == 'Building':
-            self.min_size = 400
-        else:
-            self.min_size = 200
-        self.chg_pts = self._change_points(min_size = self.min_size)
-        
-
-
-    
-        
-    def plot(self):
-        font_kwargs = {'size': 18,
-                          'weight': 'bold'}
-        plt.rc('font', **font_kwargs)
-        fig, ax = plt.subplots(figsize=(15,8)) 
-        
-        for i in range(self.np_seq_X.shape[0]):
-            linear_decrease = (-4/115)*self.np_seq_X.shape[0] + 119/115
-            plt.plot(self.np_seq_X[i,:],'k',alpha=0.5*linear_decrease,
-                     label="")
-        
-        if self.data_type == 'Building':
-            # Personal Note: 13*470-940 = 5170   
-            rect = Rectangle((5170,1), 2000, 6, facecolor='darksalmon',label="")
-            ax.add_patch(rect)
-            rect = Rectangle((7170,1), 2000, 6, facecolor='salmon',label="")
-            ax.add_patch(rect)
-            rect = Rectangle((9170,1), 2000, 6, facecolor='tomato',label="")
-            ax.add_patch(rect)
-            rect = Rectangle((11170,1), 2000, 6, facecolor='red',label="")
-            ax.add_patch(rect)
-
-
-            ax.annotate('Damage\n Level 1', (5300,6), color='k',fontsize=15)
-            ax.annotate('Damage\n Level 2', (7300,6), color='k',fontsize=15)
-            ax.annotate('Damage\n Level 3', (9300,6), color='k',fontsize=15)
-            ax.annotate('Damage\n Level 4', (11300,6), color='k',fontsize=15)
-
-            # Plotting change points
-            relevant_chg_pts = self.chg_pts[self.chg_pts > 5170][:-1]
-            plt.vlines(relevant_chg_pts,1.4,5.8,color='b', linestyle='dashed',
-                      linewidth=5,label='Change Points')
-            plt.legend()
-            ax.set_ylim([1.2,6.5])
-            ax.set_xlabel('Signal Counts')
-            ax.set_ylabel('Signal Magnitude')
-            
-        else:  # Aircraft
-            rect = Rectangle((2000,-2.8), 2000, 6, facecolor='lightgreen')
-            ax.add_patch(rect)
-            rect = Rectangle((4000,-2.8), 2000, 6, facecolor='red')
-            ax.add_patch(rect)
-
-            ax.annotate('Take-off Phase', (1000, 2.5), color='k',fontsize=14)
-            ax.annotate('Climb Phase', (3000,2.5), color='k',fontsize=14)
-            ax.annotate('Climb Phase (Damaged)', (4500,2.5), color='k',fontsize=14)
-
-            # Plotting change points
-            relevant_chg_pts = self.chg_pts[self.chg_pts > 2000][:-1]
-            plt.vlines(relevant_chg_pts,-2.8,2.1,color='b', linestyle='dashed',
-                      linewidth=5,label='Change Points')
-            
-            ax.set_ylim([-2.8,3.2])
-
-            ax.set_title('Sensor Signals')
-            ax.set_title('Matrix Profile')
-            ax.set_title('Semantic Segmenter')
-            ax.set_xlabel('Signal Counts')
-        
-        
-        
-        
-    def _change_points(self, min_size, kernel='rbf', reduc_factor=3):
-        """
-        Perform rbf multi-variate change point analysis
-        """
-        
-        signal_list = []
-        for i in range(len(self.sensor_nums)):   
-            # Under-sampling (for speed up)
-            Xs,f = self._sampler(self.np_seq_X[i,:])
-            Xs_truncate = Xs[::reduc_factor] # Reduce by factor
-            signal_list.append(f(Xs_truncate).reshape(-1,1))
-            
-        signal_array = np.hstack(signal_list)
-        chg_pt_analysis = rpt.KernelCPD(kernel="linear", min_size=min_size).fit(signal_array) 
-        
-        if self.data_type == 'Building':
-            out = np.array(chg_pt_analysis.predict(n_bkps=5))*reduc_factor
-        else: # Aircraft
-            out = np.array(chg_pt_analysis.predict(n_bkps=3))*reduc_factor
-        return out
-            
-        
-                                                                       
-        
-        
-    def _collect_data(self):
-        """
-        Reading data in and assembling
-        into list.
-        
-        Signals will be appended into sequnce
-        of healthy --> unhealty to see 
-        damage progression.
-        """
-        X_list = []
-        for i in self.sensor_nums:
-            if self.data_type == 'Building':
-                str_in = f'Building_Sensor{i}.mat'
-                data_in = mat4py.loadmat(str_in)
-
-                X = np.array(data_in['X'])
-                y = np.array(data_in['y'])
-
-                healthy_idx = np.argwhere(y==0)[:,0]
-                healthy_idx_half = healthy_idx[::2] # Less computation
-                unhealthy_idx = np.argwhere(y==1)[:,0]
-
-                healthy_X = X[healthy_idx_half]
-                unhealthy_X = X[unhealthy_idx]
-
-                # pre-processing (nSensors x Signal Length)
-                X_all = np.append(healthy_X.flatten(), unhealthy_X.flatten())
-                X_all = self._moving_average(np.log(X_all),40)
-
-                X_list.append(X_all)
-                
-            if self.data_type == 'Aircraft':
-                str_in = f'Aircraft_Sensor{i}.mat'
-                data_in = mat4py.loadmat(str_in)
-
-                X = np.array(data_in['X'])
-                y = np.array(data_in['y'])
-
-                healthy_idx = np.argwhere(y==0)[:,0]
-                unhealthy_idx = np.argwhere(y==1)[:,0]
-
-                healthy_X = X[healthy_idx]
-                unhealthy_X = X[unhealthy_idx]
-
-                # pre-processing (nSensors x Signal Length)
-                X_all = np.append(healthy_X.flatten(), unhealthy_X.flatten())
-                X_all = self._moving_average(X_all,40) # Don't need moving average
-
-                X_list.append(X_all)
- 
-        return np.array(X_list)
-
-        
-    
-    def _moving_average(self,x, w):
-        """
-        Helper function
-        """
-        return np.convolve(x, np.ones(w), 'valid') / w   
-    
-    
-    
-    def _sampler(self,np_seq_Xi):
-        """
-        Helper function for down/upsampling
-        signals (for increased speed).
-        
-        Not very elegant. 
-        """
-        
-        Xs = np.arange(len(np_seq_Xi))
-        f = interp1d(Xs, np_seq_Xi, kind='cubic',
-                    fill_value='interpolate')
-        return Xs,f
-
-
-
-
-
-
-
-
 class ChangePoint:
     
     def __init__(self, data_path):
@@ -767,27 +736,86 @@ class ChangePoint:
         """   
 
         self.data_path = data_path
+        self._reduc_factor = 3 # Hidden variable for up/down sampling
         
         
-    def fit(self,data_type, sensor_nums):
+    def fit(self, data_type, sensor_nums, min_size=300):
         """
         Perform a change point analysis on sequence
         """
         self.data_type = data_type
         self.sensor_nums = sensor_nums
         
+
         # np.array of [sensors x signal length]
         self.np_seq_X = self._collect_data()
         
-        # Extract change points
-        if data_type == 'Building':
-            self.min_size = 400
-        else:
-            self.min_size = 200
-        self.chg_pts = self._change_points(min_size = self.min_size)
+
+        self.min_size = min_size  # Let user specify
+        
+        # These are the best values however:
+        # if self.data_type == 'Building':
+        #     self.min_size = 400
+        # else:
+        #     self.min_size = 200
+
+
+        signal_list = []
+        for i in range(len(self.sensor_nums)):   
+            # Under-sampling (for speed up)
+            Xs,f = self._sampler(self.np_seq_X[i,:])
+            Xs_truncate = Xs[::self._reduc_factor] # Reduce by factor
+            signal_list.append(f(Xs_truncate).reshape(-1,1))
+            
+        signal_array = np.hstack(signal_list)
+        self.chg_pt_analysis = rpt.KernelCPD(kernel="linear", min_size=self.min_size).fit(signal_array)
+
         
 
 
+    def predict(self):
+        """
+        Perform linear multi-variate change point analysis
+        """
+        
+        if self.data_type == 'Building':
+            self.chg_pts = np.array(self.chg_pt_analysis.predict(n_bkps=4))*self._reduc_factor
+            out = self.chg_pts[self.chg_pts > 5170][:-1]
+        else: # Aircraft
+            self.chg_pts = np.array(self.chg_pt_analysis.predict(n_bkps=2))*self._reduc_factor
+            out = self.chg_pts[self.chg_pts > 2000][:-1]
+
+        self.predict_flag = True # We have done a prediction (so we can plot change points)
+        return out
+
+
+
+    def error(self):
+        pred_vec = self.chg_pts
+
+        if self.data_type == 'Building':
+            reference_vec = np.array([5170, 7170, 9170, 11170]) # Locations of damage
+            error = self._calc_difference(reference_vec, pred_vec)
+            return error 
+        else:
+            reference_vec = np.array([2000,4000]) # Locations of damage
+            error = self._calc_difference(reference_vec, pred_vec1, pred_vec2)
+            return error 
+
+
+
+    def _calc_difference(self, true_vec, pred):
+        """
+        Note that all vector lengths do not need to be the same. 
+        Therefore straight-forward L2 norm not general enough. 
+
+        Soln: Iterate through pred and find nearest points true_vec
+        """
+        sum1 = 0
+        for num in pred:
+            sum1+= min([(num-true_vec[i])**2 for i in range(len(true_vec))])
+
+        return sum1
     
         
     def plot(self):
@@ -819,9 +847,10 @@ class ChangePoint:
             ax.annotate('Damage\n Level 4', (11300,6), color='k',fontsize=15)
 
             # Plotting change points
-            relevant_chg_pts = self.chg_pts[self.chg_pts > 5170][:-1]
-            plt.vlines(relevant_chg_pts,1.4,5.8,color='b', linestyle='dashed',
-                      linewidth=5,label='Change Points')
+            if self.predict_flag == True:
+                relevant_chg_pts = self.chg_pts[self.chg_pts > 5170][:-1]
+                plt.vlines(relevant_chg_pts,1.4,5.8,color='b', linestyle='dashed',
+                          linewidth=5,label='Change Points')
             plt.legend()
             ax.set_ylim([1.2,6.5])
             ax.set_xlabel('Signal Counts')
@@ -838,9 +867,10 @@ class ChangePoint:
             ax.annotate('Climb Phase (Damaged)', (4500,2.5), color='k',fontsize=14)
 
             # Plotting change points
-            relevant_chg_pts = self.chg_pts[self.chg_pts > 2000][:-1]
-            plt.vlines(relevant_chg_pts,-2.8,2.1,color='b', linestyle='dashed',
-                      linewidth=5,label='Change Points')
+            if self.predict_flag == True:
+                relevant_chg_pts = self.chg_pts[self.chg_pts > 2000][:-1]
+                plt.vlines(relevant_chg_pts,-2.8,2.1,color='b', linestyle='dashed',
+                          linewidth=5,label='Change Points')
             
             ax.set_ylim([-2.8,3.2])
 
@@ -848,31 +878,7 @@ class ChangePoint:
             ax.set_title('Matrix Profile')
             ax.set_title('Semantic Segmenter')
             ax.set_xlabel('Signal Counts')
-        
-        
-        
-        
-    def _change_points(self, min_size, kernel='rbf', reduc_factor=3):
-        """
-        Perform rbf multi-variate change point analysis
-        """
-        
-        signal_list = []
-        for i in range(len(self.sensor_nums)):   
-            # Under-sampling (for speed up)
-            Xs,f = self._sampler(self.np_seq_X[i,:])
-            Xs_truncate = Xs[::reduc_factor] # Reduce by factor
-            signal_list.append(f(Xs_truncate).reshape(-1,1))
-            
-        signal_array = np.hstack(signal_list)
-        chg_pt_analysis = rpt.KernelCPD(kernel="linear", min_size=min_size).fit(signal_array) 
-        
-        if self.data_type == 'Building':
-            out = np.array(chg_pt_analysis.predict(n_bkps=5))*reduc_factor
-        else: # Aircraft
-            out = np.array(chg_pt_analysis.predict(n_bkps=3))*reduc_factor
-        return out
-            
+             
         
                                                                        
         
