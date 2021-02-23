@@ -22,7 +22,7 @@ dash-extensions==0.0.23
 dash-html-components==1.1.2
 dash-renderer==1.9.0
 dash-table==4.11.2
-dataclasses==0.8
+dataclasses==0.6
 decorator==4.4.2
 defusedxml==0.6.0
 entrypoints==0.3
