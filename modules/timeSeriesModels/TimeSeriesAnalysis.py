@@ -27,6 +27,8 @@ from scipy.interpolate import interp1d
 from sklearn.cluster import KMeans
 from scipy.spatial import distance_matrix
 
+# For Hausdorff Metric
+from scipy.spatial.distance import cdist
 
 
 
@@ -479,39 +481,37 @@ class MatrixProfile:
 
         if self.data_type == 'Building':
             reference_vec = np.array([5170, 7170, 9170, 11170]) # Locations of damage
-            error = self._calc_difference(reference_vec, pred_vec1, pred_vec2)
-            return error 
+            error1 = self._hausdorff(reference_vec, pred_vec1)
+            error2 = self._hausdorff(reference_vec, pred_vec2)
+            # error = self._calc_difference(reference_vec, pred_vec1, pred_vec2)
         else:
             reference_vec = np.array([2000,4000]) # Locations of damage
-            error = self._calc_difference(reference_vec, pred_vec1, pred_vec2)
-            return error 
+            error1 = self._hausdorff(reference_vec, pred_vec1)
+            error2 = self._hausdorff(reference_vec, pred_vec2)
+            # error = self._calc_difference(reference_vec, pred_vec1, pred_vec2)
+
+        return (error1 + error2)/2
 
 
+    def _hausdorff(self, bkps1, bkps2):
+        """Compute the Hausdorff distance between changepoints.
+        Args:
+            bkps1 (list): list of the last index of each regime.
+            bkps2 (list): list of the last index of each regime.
+        Returns:
+            float: Hausdorff distance.
 
-    def _calc_difference(self, true_vec, pred1, pred2):
+        REF: Taken from ruptures library
         """
-        Note that all vector lengths do not need to be the same. 
-        Therefore straight-forward L2 norm not general enough. 
+        bkps1_arr = np.array(bkps1[:-1]).reshape(-1, 1)
+        bkps2_arr = np.array(bkps2[:-1]).reshape(-1, 1)
+        pw_dist = cdist(bkps1_arr, bkps2_arr)
+        res = max(pw_dist.min(axis=0).max(), pw_dist.min(axis=1).max())
 
-        Soln: Iterate through pred1 / pred2 and find nearest points true_vec
-
-        Need two loops because len(pred_vec1) not always = len(pred_vec2)
-        """
-        sum1 = 0
-        for num in pred1:
-            sum1+= min([(num-true_vec[i])**2 for i in range(len(true_vec))])
-
-        sum2 = 0
-        for num in pred2:
-            sum2+= min([(num-true_vec[i])**2 for i in range(len(true_vec))])
-
-        return (sum1+sum2)/2
+        return res
 
 
-
-
-
-
+   
     def plot(self):
     
         font_kwargs = {'size': 18,
@@ -799,27 +799,31 @@ class ChangePoint:
 
         if self.data_type == 'Building':
             reference_vec = np.array([5170, 7170, 9170, 11170]) # Locations of damage
-            error = self._calc_difference(reference_vec, pred_vec)
-            return error 
+            error = self._hausdorff(reference_vec, pred_vec)
         else:
             reference_vec = np.array([2000,4000]) # Locations of damage
-            error = self._calc_difference(reference_vec, pred_vec1, pred_vec2)
-            return error 
+            error = self._hausdorff(reference_vec, pred_vec)
+
+        return error 
 
 
 
-    def _calc_difference(self, true_vec, pred):
+    def _hausdorff(self, bkps1, bkps2):
+        """Compute the Hausdorff distance between changepoints.
+        Args:
+            bkps1 (list): list of the last index of each regime.
+            bkps2 (list): list of the last index of each regime.
+        Returns:
+            float: Hausdorff distance.
+
+        REF: Taken from ruptures library
         """
-        Note that all vector lengths do not need to be the same. 
-        Therefore straight-forward L2 norm not general enough. 
-
-        Soln: Iterate through pred and find nearest points true_vec
-        """
-        sum1 = 0
-        for num in pred:
-            sum1+= min([(num-true_vec[i])**2 for i in range(len(true_vec))])
-
-        return sum1
+        bkps1_arr = np.array(bkps1[:-1]).reshape(-1, 1)
+        bkps2_arr = np.array(bkps2[:-1]).reshape(-1, 1)
+        pw_dist = cdist(bkps1_arr, bkps2_arr)
+        res = max(pw_dist.min(axis=0).max(), pw_dist.min(axis=1).max())
+        
+        return res
     
         
     def plot(self):
