@@ -618,6 +618,9 @@ class MatrixProfile:
             f_red = f(Xs_truncate)
 
             # Matrix Profiling
+            # stump  ---> scrump?
+            # Seems that scump object cannot be used later for allc??
+            # ---> Need to check this in more detail later
             mp = stumpy.stump(f_red, m, normalize=False)
             # Chain Analysis
             all_chain_set, unanchored_chain = stumpy.allc(mp[:, 2], mp[:, 3])
