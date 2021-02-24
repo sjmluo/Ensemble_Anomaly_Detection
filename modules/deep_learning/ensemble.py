@@ -147,12 +147,12 @@ class Stacking:
 class Barycentre:
     def __init__(self, models = None):
         self.models = models
-        if self.models == None: self.models = [#ReconstructionVAE(),
-                                               # VAErcp(),
-                                               # VAEvampprior(),
-                                               # IForest(),
-                                               # KNN(),
-                                               # LOF(),
+        if self.models == None: self.models = [ReconstructionVAE(),
+                                                VAErcp(),
+                                                VAEvampprior(),
+                                                IForest(),
+                                                KNN(),
+                                                LOF(),
                                                 PCA(),
                                                 OCSVM()]
         self.stack = None
@@ -182,7 +182,6 @@ class Barycentre:
         M /= M.max()
         reg = 1e-3
         weights = np.ones([A.shape[1]])
-        weights /= len(weights)
         y_pred = np.expand_dims(ot.bregman.barycenter(A, M, reg, weights), -1)
         print(np.concatenate([np.expand_dims(A.mean(-1), -1), y_pred], 1))
         class0 = 1-y_pred
