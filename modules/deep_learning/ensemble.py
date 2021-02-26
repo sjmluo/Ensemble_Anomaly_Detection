@@ -85,7 +85,7 @@ class Stacking:
     Supervised implementation of stacked generalisation using MLP
     https://www.sciencedirect.com/science/article/pii/S0893608005800231
     """
-    def __init__(self, models = None):
+    def __init__(self, models = None, pre = True):
         self.models = models
         if self.models == None: self.models = [ReconstructionVAE(),
                                                 VAErcp(),
@@ -98,11 +98,12 @@ class Stacking:
         self.stack = None
         self.verbose = 0
         self.epochs = 1500
+        self.pre = pre
     
     def fit(self, X, y):
         y = np.array(y, dtype = 'int32')
         sizes = [256, 64, 16, 1]
-        self.stack = MLP(sizes, len(self.models))
+        self.stack = MLP(sizes, len(self.models)) if self.pre else MLP(sizes)
         X_train,X_test,y_train,y_test = train_test_split(X,y,random_state=1,train_size=0.6)
         for model in self.models:
             if isinstance(model, tf.keras.Model):
@@ -175,15 +176,24 @@ class Barycentre:
         t_val = y_pred < 0.5
         return np.where(y_pred < t_val, 0, 1)
 
+    def barycenter(self, A, M, reg, stopThr=0.0001):
+        print(stopThr)
+        res = np.expand_dims(ot.bregman.barycenter(A, M, reg, stopThr = stopThr), -1)
+        if np.isnan(res).any():
+            return self.barycenter(A, M, reg, stopThr*1.2)
+        return res
+
     def predict_proba(self, x):
+        import matplotlib.pyplot as plt
         X_test = [model.predict_proba(x)[:,1] for model in self.models]
         A = np.stack(X_test, -1)
         M = ot.utils.dist(x)
-        M /= M.max()
+        #M /= M.max()
+        M = np.float_power(M, A.shape[1]/2)
         reg = 1e-3
-        weights = np.ones([A.shape[1]])
-        y_pred = np.expand_dims(ot.bregman.barycenter(A, M, reg, weights), -1)
+        y_pred = self.barycenter(A, M, 1e6)
         print(np.concatenate([np.expand_dims(A.mean(-1), -1), y_pred], 1))
+        X = np.arange(len(x))
         class0 = 1-y_pred
         return np.concatenate([class0, y_pred], 1)
 
