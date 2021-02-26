@@ -145,7 +145,7 @@ class Stacking:
 
         return [plateau, earlystop]
 
-class Barycentre:
+class Barycenter:
     def __init__(self, models = None):
         self.models = models
         if self.models == None: self.models = [ReconstructionVAE(),
