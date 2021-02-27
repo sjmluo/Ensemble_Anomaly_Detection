@@ -533,17 +533,21 @@ class MatrixProfile:
             axs[1].plot(self.sensor_listX[i],'k',alpha=0.4)
 
             # Plotting Matrix Profiles
-            axs[2].plot(self.mp_list[i],'k',alpha=0.4)
+            axs[2].plot(self.mp_list[i],'k',alpha=0.4, label="Sensor Signals" if i==0 else "")
 
             # Plotting Semantic Segmenter
-            axs[3].plot(self.cac_list[i],'k',alpha=0.4)
+            axs[3].plot(self.cac_list[i],'k',alpha=0.4, 
+                label="Sensor Signals" if i==0 else "")
 
         # Plotting Barycentre 1 (one element list)
-        axs[2].plot(self.mp_bary_list[0],'r', linewidth=3)
+        axs[2].plot(self.mp_bary_list[0],'r', linewidth=3, label="Barycentre")
 
         # Plotting Barycentre 2 (one element list)
-        axs[3].plot(self._moving_average(self.cac_bary_list[0], 100),'r', linewidth=3)
+        axs[3].plot(self._moving_average(self.cac_bary_list[0], 100),'r', linewidth=3,
+                    label="Barycentre")
 
+        axs[2].legend(loc="upper left")
+        axs[3].legend(loc="upper left")
 
         # Making pretty ... 
         # Annotating ground truth of when damage / phases are
@@ -835,7 +839,7 @@ class ChangePoint:
         for i in range(self.np_seq_X.shape[0]):
             linear_decrease = (-4/115)*self.np_seq_X.shape[0] + 119/115
             plt.plot(self.np_seq_X[i,:],'k',alpha=0.5*linear_decrease,
-                     label="")
+                     label="Sensor Signals" if i==0 else "")
         
         if self.data_type == 'Building':
             # Personal Note: 13*470-940 = 5170   
@@ -859,7 +863,7 @@ class ChangePoint:
                 relevant_chg_pts = self.chg_pts[self.chg_pts > 5170][:-1]
                 plt.vlines(relevant_chg_pts,1.4,5.8,color='b', linestyle='dashed',
                           linewidth=5,label='Change Points')
-            plt.legend()
+            plt.legend(loc="upper left")
             ax.set_ylim([1.2,6.5])
             ax.set_xlabel('Signal Counts')
             ax.set_ylabel('Signal Magnitude')
@@ -882,9 +886,7 @@ class ChangePoint:
             
             ax.set_ylim([-2.8,3.2])
 
-            ax.set_title('Sensor Signals')
-            ax.set_title('Matrix Profile')
-            ax.set_title('Semantic Segmenter')
+            ax.set_title('Multivariate Change Point Analyzer')
             ax.set_xlabel('Signal Counts')
              
         
