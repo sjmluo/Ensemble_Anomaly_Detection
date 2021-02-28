@@ -268,7 +268,7 @@ def plot_twitter_network():
 
 def plot_ensemble_network():
     array = []
-    for i in range(6):
+    for i in range(9):
         with open(f"../datasets/graph/example{i}.pickle", "rb") as input_file:
             elements = pickle.load(input_file)
 
