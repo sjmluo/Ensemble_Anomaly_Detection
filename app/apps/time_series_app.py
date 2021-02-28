@@ -50,10 +50,10 @@ model_dropdown = [
         'label': 'Matrix Profile',
         'value': 'matrix_profile'
     },
-    {
-        'label': 'Tensor Decomposition',
-        'value': 'tensor_decomp'
-    },
+    #{
+    #    'label': 'Tensor Decomposition',
+    #    'value': 'tensor_decomp'
+    #},
 ]
 controls = dbc.Card(
     [
@@ -200,12 +200,14 @@ def plot_timeseries_data(timeseries_dataset,timeseries_sensor):
 def plot_timeseries_data(timeseries_dataset,timeseries_model,timeseries_sensor):
     if isinstance(timeseries_sensor,int):
         timeseries_sensor = [timeseries_sensor]
-    if timeseries_model == 'tensor_decomp':
-        graphs = tensor_decomp(timeseries_dataset,timeseries_sensor)
-    elif timeseries_model == 'change_point':
+    #if timeseries_model == 'tensor_decomp':
+    #    graphs = tensor_decomp(timeseries_dataset,timeseries_sensor)
+    if timeseries_model == 'change_point':
         graphs = change_point(timeseries_dataset,timeseries_sensor)
     elif timeseries_model == 'matrix_profile':
         graphs = matrix_profile(timeseries_dataset,timeseries_sensor)
+    else:
+        raise ValueError
     return graphs
 
 def matrix_profile(timeseries_dataset, timeseries_sensor):
