@@ -8,7 +8,7 @@ sys.path.append('..')
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output,ALL,MATCH
 
 import json
 import pickle
@@ -26,23 +26,41 @@ from os.path import isfile, join
 
 dataset_dropdown_choices = [
     {
-        'label': "Twitter WorldCup 2014",
-        'value': 'twitter_worldcup'
+        'label': "Ensemble Graph",
+        'value': 'ensemble_graph'
     },
-    {
-        'label': "Yelp",
-        'value': 'yelpchi'
-    },
+
+    #{
+    #    'label': "Twitter WorldCup 2014",
+    #    'value': 'twitter_worldcup'
+    #},
+    #{
+    #    'label': "Yelp",
+    #    'value': 'yelpchi'
+    #},
 ]
 
 model_dropdown = [
+
+    #{
+    #    'label': 'Outlier Link Detection',
+    #    'value': 'link'
+    #},
+    #{
+    #    'label': 'Outlier Node Detection',
+    #    'value': 'node'
+    #},
     {
-        'label': "Outlier Link Detection",
-        'value': 'link'
+        'label': 'Oddball',
+        'value': 'oddball'
     },
     {
-        'label': "Outlier Node Detection",
-        'value': 'node'
+        'label': 'SCAN',
+        'value': 'scan'
+    },
+    {
+        'label': 'Eigenspoke',
+        'value': 'eigenspoke'
     },
 ]
 controls = dbc.Card(
@@ -59,9 +77,9 @@ controls = dbc.Card(
         ),
         dbc.FormGroup(
             [
-                dbc.Label("Problem"),
+                dbc.Label("Model"),
                 dcc.Dropdown(
-                    id="model",
+                    id="graph-model",
                     options=model_dropdown,
                     value=model_dropdown[0]['value'],
                 ),
@@ -70,7 +88,17 @@ controls = dbc.Card(
     ],
     body=True,
 )
+default_graph_stylesheet = [
+    {
+        'selector': 'node',
+        'style': {
+            'label': "data(id)",
+            'width': "10%",
+            'height': "10%"
+        }
+    },
 
+]
 data_description = dbc.Card(
     [
         dbc.Container([
@@ -104,52 +132,55 @@ layout = html.Div([
                     'padding-top': 10
                 }),
             ]),
+        html.Div(id="graphs")
+
     ]),
-
-    cyto.Cytoscape(
-        id='cytoscape-two-nodes',
-        layout={'name': 'circle'},
-        style={'width': '100%', 'height': '1000px'},
-        stylesheet=[
-            {
-                'selector': 'node',
-                'style': {
-                    'label': "data(id)",
-                    'width': "10%",
-                    'height': "10%"
-                }
-            },
-            {
-                'selector': '.red',
-                'style': {
-                    'background-color': 'red',
-                    'line-color': 'red'
-                }
-            },
-
-            {
-                'selector': 'edge',
-                'style': {
-                    'width': 'mapData(weight, 0,50, 1, 10)',
-                    'label': "data(weight)",
-                }
-            },
-
-            {
-                'selector': '[anomaly = 1]',
-                'style': {
-                    'background-color': 'red',
-                    'line-color': 'red'
-                }
-            },
-        ],
-        #elements=elements
-    )
 ])
+    #cyto.Cytoscape(
+    #    id='cytoscape-two-nodes',
+    #    layout={'name': 'circle'},
+    #    style={'width': '100%', 'height': '1000px'},
+    #    stylesheet=[
+    #        {
+    #            'selector': 'node',
+    #            'style': {
+    #                'label': "data(id)",
+    #                'width': "10%",
+    #                'height': "10%"
+    #            }
+    #        },
+    #        {
+    #            'selector': '.red',
+    #            'style': {
+    #                'background-color': 'red',
+    #                'line-color': 'red'
+    #            }
+    #        },
+#
+#            {
+#                'selector': 'edge',
+#                'style': {
+#                    'width': 'mapData(weight, 0,50, 1, 10)',
+#                    'label': "data(weight)",
+#                }
+#            },
+#
+#            {
+#                'selector': '[anomaly = 1]',
+#                'style': {
+#                    'background-color': 'red',
+#                    'line-color': 'red'
+#                }
+#            },
+#        ],
+#        #elements=elements
+#    )
 
 
+
+"""
 @app.callback(
-    Output('cytoscape-two-nodes', 'elements'),
+    Output('graphs', 'elements'),
     Input('graph_dataset', 'value'),)
 def graph_dataset_description(graph_dataset):
     if graph_dataset == 'twitter_worldcup':
@@ -160,10 +191,62 @@ def graph_dataset_description(graph_dataset):
     with open(f"../datasets/{pickle_file}", "rb") as input_file:
         elements = pickle.load(input_file)
     return elements
+"""
+@app.callback(
+    Output('graphs', 'children'),
+    Input('graph_dataset', 'value'),)
+def create_network(graph_dataset):
+    if graph_dataset == 'ensemble_graph':
+        array = []
+        for i in range(6):
+            with open(f"../datasets/graph/example{i}.pickle", "rb") as input_file:
+                elements = pickle.load(input_file)
+
+                network = cyto.Cytoscape(
+                    id={
+                        'type': 'cyto-graph',
+                        'index': i
+                    },
+                    layout={'name': 'cose'},
+                    style={'width': '100%', 'height': '200px'},
+                    stylesheet=default_graph_stylesheet,
+                    elements=elements
+                )
+            array.append(dbc.Col(network,md=4))
+        with open(f"../datasets/graph/barycentre_example.pickle", "rb") as input_file:
+            elements = pickle.load(input_file)
+
+            bary_network = cyto.Cytoscape(
+                id={
+                'type': 'cyto-graph',
+                'index': 420
+                },
+                layout={'name': 'cose'},
+                style={'width': '100%', 'height': '500px'},
+                stylesheet=default_graph_stylesheet,
+                elements=elements
+            )
+    print(elements)
+    return [dbc.Row(array),dbc.Row(bary_network)]
 
 @app.callback(
     Output('graph-data-descript-heading', 'children'),
     Output('graph-data-descript-body', 'children'),
-    Input('dataset', 'value'),)
+    Input('graph_dataset', 'value'),)
 def graph_dataset_description(*args,**kwargs):
     return display_description(*args,**kwargs)
+
+@app.callback(
+    Output({'type': 'cyto-graph', 'index': MATCH}, 'stylesheet'),
+    Input('graph-model', 'value'),)
+def show_labels(graph_model):
+    new_styles = [
+
+         {
+            'selector': f'[{graph_model}_pred = 1]',
+            'style': {
+                'background-color': 'red'
+            }
+        }
+    ]
+    return default_graph_stylesheet + new_styles

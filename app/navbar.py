@@ -11,7 +11,7 @@ def Navbar(current_app=None):
                 dbc.Row(
                     [
                         dbc.Col(html.Img(src=PLOTLY_LOGO, height="30px")),
-                        dbc.Col(dbc.NavbarBrand("Some Brand", className="ml-2")),
+                        dbc.Col(dbc.NavbarBrand("SL Group", className="ml-2")),
                     ],
                     align="center",
                     no_gutters=True,
@@ -21,7 +21,7 @@ def Navbar(current_app=None):
             dbc.Nav(
                 [
                     dbc.NavItem(dbc.NavLink("Point Cloud", href="/point_cloud",active=current_app=="/point_cloud")),
-                    dbc.NavItem(dbc.NavLink("Time Series", href="/",active=current_app=="/")),
+                    dbc.NavItem(dbc.NavLink("Time Series", href="/timeseries",active=current_app=="/timeseries")),
                     dbc.NavItem(dbc.NavLink("Graph", href="/graph",active=current_app=="/graph")),
                 ],
                 pills=True,
@@ -46,14 +46,22 @@ def Footer():
                             align="center",
                             no_gutters=True,
                         ),
-                        href="/",
                     ),
                     dbc.Nav(
                         [
-                            dbc.NavItem(dbc.NavLink("Name", href="/point_cloud",)),
-                            dbc.NavItem(dbc.NavLink("Some other name", href="/",)),
-                            dbc.NavItem(dbc.NavLink("Last Guys name", href="/graph",)),
+                            dbc.Col(dbc.NavItem("Simon Luo"),md=1,),
+                            dbc.Col(dbc.NavItem("Lamiae Azizi"),md=1),
+                            dbc.Col(dbc.NavItem("Harrison Nguyen",className="mr-2"),md=1),
+                            dbc.Col(dbc.NavItem("Prasad Cheema",className="ml-1"),md=1),
+                            dbc.Col(dbc.NavItem("Michael Lin"),md=1),
+                            dbc.Col(dbc.NavItem("Gerry How"),md=1),
                         ],
+                    ),
+                    dbc.Nav(
+                        [
+                            dbc.Col(dbc.NavItem("Contact:"),md=2,align="center"),
+                            dbc.Col(dbc.NavItem(dbc.NavLink("s.luo{at}sydney{dot}edu{dot}au",href="mailto:s.luo{at}sydney{dot}edu{dot}au")),md=1,)
+                        ]
                     ),
                 ],
             )
@@ -61,7 +69,6 @@ def Footer():
         className="footer bg-light",
         style={
             'position': 'absolute',
-            'bottom': 0,
             'width': '100%',
         }
     )

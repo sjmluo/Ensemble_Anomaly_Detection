@@ -1,6 +1,5 @@
 from sklearn.decomposition import NMF
-
-
+import pickle
 class OutlierLink(object):
     """
     A model for outlier link prediction
@@ -53,7 +52,7 @@ class OutlierLink(object):
         recon_A = nmf.inverse_transform(transformed_A)
 
         return np.logical_not(
-            np.isclose(self.A,recon_A,atol=tolerance)))
+            np.isclose(self.A,recon_A,atol=tolerance))
 
 def networkx_to_dash(G,filename=None):
     element_list = []
@@ -77,6 +76,6 @@ def networkx_to_dash(G,filename=None):
             }
             element_list.append(edge_outer_dict)
     if filename:
-        with open(f"../datasets/{filename}.pickle", "wb") as output_file:
+        with open(f"{filename}.pickle", "wb") as output_file:
             pickle.dump(element_list, output_file)
     return element_list
