@@ -1,6 +1,9 @@
-## Geometrically Preserved Ensembles of Single Class Classifiers on Point Clouds, Time Series, and Graphs
+## Geometrically Preserved Ensembles of Single Class Classifiers
+## On Point Clouds, Time Series, and Graphs
 
-This is a demonstration for a range of anomaly detection algorithms for high-dimensional point cloud, time-series and graphs. These approaches include:
+Demonstration of Geometrically Preserved Ensembles of Single Class Classifiers on Point Clouds, Time Series, and Graphs.
+
+We provide a demonstration for a range of anomaly detection algorithms for high-dimensional point cloud, time-series and graphs. These approaches include:
 
 - high-dimensional point clouds:
   - Isolation Forest[1]
@@ -18,7 +21,7 @@ This is a demonstration for a range of anomaly detection algorithms for high-dim
   - SCAN[11]
   - Eigenspokes[12]
 
-We show case our key contribution to ensemble models using the Wasserstein Barycentre. Wasserstein Barycentre provides a geometrically meaningful way to aggregate probability distributions based on the theory of optimal transport.
+We show case our key contribution to ensemble models using Barycentres. Barycentre provides a geometrically meaningful way to aggregate probability distributions.
 
 #### References
 [1]: Fei Tony Liu,  Kai Ming Ting,  and Zhi-Hua Zhou.  Isolation forest.  In 2008  eighth  ieee  international conference on data mining, pages 413–422. IEEE, 2008.
