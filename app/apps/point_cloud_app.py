@@ -57,10 +57,10 @@ methods = {
         'model':IForest,
         'hyperparam':{
             'name':'n_estimators',
-            'min': 50,
-            'max': 1000,
-            'default':100,
-            'stepsize':10,
+            'min': 10,
+            'max': 50,
+            'default':10,
+            'stepsize':5,
         }
     },
     'knn': {
@@ -163,6 +163,12 @@ controls = dbc.Card(
                 ),
             ]
         ),
+        html.P(
+            "This may taken a few seconds to update.",
+            className="card-text",
+            style={
+                'margin-bottom': 10
+            })
     ],
     body=True,
 )
@@ -182,6 +188,7 @@ data_description = dbc.Card(
                 style={
                     'margin-bottom': 10
                 }),
+
     ])
     ]
 )
@@ -221,7 +228,7 @@ datatable_description = dbc.Card(
                 "The true labels are shown along with the predictions by the selected models.",
                 className="card-text"),
             html.P(
-                "These can be filtered and consequently plotted to analyse the possible important features for description.",
+                "These can be filtered and consequently plotted to analyse the possible important features for prediction.",
                 className="card-text",
             ),
             html.P(
@@ -250,9 +257,7 @@ layout =  dbc.Container([
     dbc.Row([
         dbc.Col(performance_description,md=4),
         dbc.Col(
-            dash_table.DataTable(
-                id='table',
-            ),
+            dcc.Loading(children=dash_table.DataTable(id='table',),type='circle'),
             md=8
         ),
     ],
@@ -263,7 +268,7 @@ layout =  dbc.Container([
     dbc.Row([
         dbc.Col(datatable_description,md=4),
         dbc.Col(
-            dash_table.DataTable(
+            dcc.Loading(children=dash_table.DataTable(
                 id='data-table',
                 style_table={
                     'margin-bottom': '60px',
@@ -274,11 +279,11 @@ layout =  dbc.Container([
                 page_action='none',
                 filter_action='custom',
                 filter_query='',
-            ),
+            ),type='circle'),
             md=8,
         )
     ]),
-    dbc.Row(id='output-graphs'),
+    dcc.Loading(children=dbc.Row(id='output-graphs'),type='circle'),
         #dbc.Col(html.Div(id='output-graphs'),md=6),
     # Hidden div inside the app that stores the intermediate value
     html.Div(id='data', style={'display': 'none'}),

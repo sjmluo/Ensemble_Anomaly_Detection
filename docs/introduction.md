@@ -1,8 +1,6 @@
-## Ensembling Single-Class Classifiers via Wasserstein Barycentres
+## Geometrically Preserved Ensembles of Single Class Classifiers on Point Clouds, Time Series, and Graphs
 
-Demonstration of Ensembling Single-Class Classifiers via Wasserstein Barycentres
-
-We provide a demonstration for a range of anomaly detection algorithms for high-dimensional point cloud, time-series and graphs. These approaches include:
+This is a demonstration for a range of anomaly detection algorithms for high-dimensional point cloud, time-series and graphs. These approaches include:
 
 - high-dimensional point clouds:
   - Isolation Forest[1]

@@ -88,6 +88,12 @@ controls = dbc.Card(
                 )
             ]
         ),
+        html.P(
+            "This may taken a few seconds to update.",
+            className="card-text",
+            style={
+                'margin-bottom': 10
+            })
     ],
     body=True,
 )
@@ -147,9 +153,11 @@ layout = html.Div([
                     'padding-top': 10
                 }),
             ]),
-        html.Div(id="timeseries-data-plot"),
+        dcc.Loading(html.Div(id="timeseries-data-plot"),type="circle",),
         html.H4("Results"),
-        html.Div(id="timeseries-data-result"),
+        dcc.Loading(
+                    children=html.Div(id="timeseries-data-result"),
+                    type="circle",),
     ]),
 ])
 
