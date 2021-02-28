@@ -42,13 +42,14 @@ dataset_dropdown_choices = [
 ]
 
 model_dropdown = [
-    {
-        'label': 'Change Point',
-        'value': 'change_point'
-    },
+
     {
         'label': 'Matrix Profile',
         'value': 'matrix_profile'
+    },
+    {
+        'label': 'Change Point',
+        'value': 'change_point'
     },
     #{
     #    'label': 'Tensor Decomposition',
