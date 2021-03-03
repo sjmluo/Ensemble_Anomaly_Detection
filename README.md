@@ -1,5 +1,5 @@
 <h1 align="center">
-  <b>Ensembling Single-Class Classifiers via Wasserstein Barycentres</b><br>
+  <b>Ensembling Single-Class Classifiers via Barycentres</b><br>
 </h1>
 
 <p align="center">
@@ -7,7 +7,7 @@
         <img src="https://img.shields.io/badge/Python-3.8-ff69b4.svg" /></a>    
 </p>
 
-Demonstration of Ensembling Single-Class Classifiers via Wasserstein Barycentres
+Demonstration of Ensembling Single-Class Classifiers via Barycentres
 
 We provide a demonstration for a range of anomaly detection algorithms for high-dimensional point cloud, time-series and graphs. These approaches include:
 
@@ -27,7 +27,7 @@ We provide a demonstration for a range of anomaly detection algorithms for high-
   - SCAN[11]
   - Eigenspokes[12]
 
-We show case our key contribution to ensemble models using the Wasserstein Barycentre. Wasserstein Barycentre provides a geometrically meaningful way to aggregate probability distributions based on the theory of optimal transport.
+We show case our key contribution to ensemble models using the Barycentre. Wasserstein Barycentre provides a geometrically meaningful way to aggregate probability distributions.
 
 ## Requirements
 - Python >= 3.8
