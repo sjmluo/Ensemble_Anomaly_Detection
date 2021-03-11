@@ -288,10 +288,9 @@ layout =  dbc.Container([
     # Hidden div inside the app that stores the intermediate value
     html.Div(id='data', style={'display': 'none'}),
     html.Div(id='data_reduced', style={'display': 'none'}),
-    html.Div(id='labels', style={'display': 'none'}),
+    dcc.Store(id='labels'),
 
     dcc.Store(id='filtered-index'),
-    dcc.Store(id='test'),
 ])
 
 
@@ -365,14 +364,7 @@ def create_hyperparameter_slider(model,value):
         items.append(row)
     return items
 
-@app.callback(
-    Output('test', 'children'),
-    Input({'type': 'slider', 'index': ALL}, 'value'),
-)
-def display_output(values):
-    print(list(values))
-    for (i,value) in enumerate(values):
-        print('Dropdown {} = {}'.format(i + 1, value))
+
 
 
 @app.callback(
@@ -410,7 +402,7 @@ def reduce_data(data,visualisation):
 @app.callback(
     Output('output-graphs', 'children'),
     Input('data_reduced', 'children'),
-    Input('labels', 'children'),
+    Input('labels', 'data'),
     Input('visualisation', 'value'),
     Input('filtered-index', 'data'),)
 def graph_data(data_reduced,labels,visualisation,index):
@@ -481,7 +473,7 @@ def graph_data(data_reduced,labels,visualisation,index):
     return graphs
 
 @app.callback(
-    Output('labels', 'children'),
+    Output('labels', 'data'),
     Output('table', 'columns'),
     Output('table', 'data'),
     Input('data', 'children'),
@@ -537,10 +529,12 @@ def train_model(data,model,visualisation,hyperparam):
 @app.callback(
     Output('data-table', 'columns'),
     Input('data', 'children'),
-    Input('labels', 'children'),)
-def tabulate_data(data,labels):
+    Input('model', 'value'))
+def tabulate_data(data,model):
     data = json.loads(data)
-    labels = json.loads(labels)
+
+    if isinstance(model,str):
+        model = [model]
     x_train = data['x_train']
     df = pd.DataFrame(x_train,
             columns=[f"feature-{i}" for i in range(len(x_train[0]))]).round(2)
@@ -556,7 +550,7 @@ def tabulate_data(data,labels):
         "id":'y_train',
         'type':'text'
     })
-    for ele in labels.keys():
+    for ele in model:
         columns.append({
         "name": f"{ele.upper()} Pred.",
         "id":f"{ele}_pred",
@@ -604,7 +598,7 @@ def split_filter_part(filter_part):
     Output('filtered-index', "data"),
     Input('data', 'children'),
     Input('data-table', "filter_query"),
-    Input('labels', 'children'),
+    Input('labels', 'data'),
     )
 def update_table(data,filter,labels):
     data = json.loads(data)
